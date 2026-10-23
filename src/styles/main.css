@@ -66,8 +66,8 @@ button:disabled {
 }
 
 .app {
-  height: 100vh;
-  height: 100dvh;
+  /* Fills html/body (both 100%), so it also fits hosts that pad :root by the safe-area insets. */
+  height: 100%;
   width: 100%;
   overflow: hidden;
 }
