@@ -1,10 +1,9 @@
 name: Deploy to GitHub Pages
 
-# Enable once in the repo: Settings → Pages → Source: "GitHub Actions".
+# Manual only: GitHub Pages needs a public repo (or a paid plan for private ones).
+# To use it: Settings → Pages → Source: "GitHub Actions", then run this workflow.
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
 
 permissions:
   contents: read
