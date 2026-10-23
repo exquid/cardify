@@ -1,0 +1,755 @@
+/* ------------------------------------------------------------------ */
+/* Table geometry                                                      */
+/* Portrait first: seats at top / left / right / bottom (hero).        */
+/* ------------------------------------------------------------------ */
+.table {
+  --cw-board: clamp(38px, min(12.6vw, 7.6vh), 66px);
+  --cw-hero: clamp(46px, min(15vw, 9.2vh), 78px);
+  --cw-opp: clamp(24px, min(7.4vw, 4.6vh), 36px);
+
+  /* Side seats sit at mid-height but never above the board's bottom edge. */
+  --side-y: max(52%, calc(33% + var(--cw-board) * 1.4 + 50px));
+
+  position: relative;
+  width: 100%;
+  max-width: 1100px;
+  height: 100%;
+  margin: 0 auto;
+}
+
+/* Felt: a racetrack table that adapts to any aspect ratio. */
+.table__felt {
+  position: absolute;
+  inset: 7% 4% 12%;
+  border-radius: 999px;
+  background:
+    radial-gradient(70% 55% at 50% 42%, rgb(27 90 75 / 0.95), transparent 70%),
+    radial-gradient(120% 100% at 50% 50%, var(--c-felt) 40%, #0d2e28 100%);
+  box-shadow:
+    0 0 0 1px rgb(217 183 121 / 0.28) inset,
+    0 0 0 7px #0f171b,
+    0 0 0 8px rgb(217 183 121 / 0.18),
+    0 0 0 14px #141e23,
+    0 30px 60px -20px rgb(0 0 0 / 0.8);
+  overflow: hidden;
+}
+
+.table__felt::after {
+  /* faint felt texture */
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(115deg, rgb(255 255 255 / 0.012) 0 2px, transparent 2px 5px);
+  pointer-events: none;
+}
+
+/* ------------------------------------------------------------------ */
+/* Cards                                                               */
+/* ------------------------------------------------------------------ */
+.card {
+  --cw: var(--cw-board);
+  position: relative;
+  flex: none;
+  width: var(--cw);
+  height: calc(var(--cw) * 1.4);
+  border-radius: calc(var(--cw) * 0.11);
+  background: linear-gradient(160deg, #fffdf7, var(--card-face) 60%, #ede6d6);
+  box-shadow:
+    0 1px 0 rgb(255 255 255 / 0.6) inset,
+    0 6px 14px -6px rgb(0 0 0 / 0.65);
+  color: var(--card-black);
+  overflow: hidden;
+  transition:
+    transform var(--t-med) var(--ease-out),
+    opacity var(--t-med) ease,
+    box-shadow var(--t-med) ease,
+    filter var(--t-med) ease;
+}
+
+.card--red {
+  color: var(--card-red);
+}
+
+.card__rank {
+  position: absolute;
+  top: 5%;
+  left: 9%;
+  font-size: calc(var(--cw) * 0.36);
+  font-weight: 650;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.card__suit {
+  position: absolute;
+  top: calc(var(--cw) * 0.44);
+  left: 10%;
+  font-size: calc(var(--cw) * 0.27);
+  line-height: 1;
+}
+
+.card__pip {
+  position: absolute;
+  right: 7%;
+  bottom: 3%;
+  font-size: calc(var(--cw) * 0.58);
+  line-height: 1;
+}
+
+.card--back {
+  background:
+    repeating-linear-gradient(45deg, rgb(217 183 121 / 0.16) 0 1px, transparent 1px 5px),
+    repeating-linear-gradient(-45deg, rgb(217 183 121 / 0.16) 0 1px, transparent 1px 5px),
+    linear-gradient(160deg, #1d2a30, #10181c);
+  box-shadow:
+    0 0 0 2px #0b1115 inset,
+    0 0 0 3px rgb(217 183 121 / 0.45) inset,
+    0 6px 14px -6px rgb(0 0 0 / 0.7);
+}
+
+.card.is-best {
+  transform: translateY(-6%);
+  box-shadow:
+    0 0 0 2px var(--c-champagne),
+    0 0 18px rgb(217 183 121 / 0.55),
+    0 8px 16px -6px rgb(0 0 0 / 0.7);
+}
+
+.card.is-dim {
+  filter: brightness(0.55) saturate(0.6);
+}
+
+/* Enter animations (Table Pulse) */
+.card.is-dealt {
+  animation: card-deal 420ms var(--ease-out) both;
+}
+
+.card.is-revealing {
+  animation: card-reveal 460ms var(--ease-out) both;
+}
+
+.card.is-flipping {
+  animation: card-flip 420ms var(--ease-out) both;
+}
+
+@keyframes card-deal {
+  from {
+    opacity: 0;
+    transform: translateY(-28px) scale(0.82) rotate(-6deg);
+  }
+}
+
+@keyframes card-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) rotateY(80deg);
+  }
+  60% {
+    opacity: 1;
+  }
+}
+
+@keyframes card-flip {
+  from {
+    transform: rotateY(90deg);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Board & pot                                                         */
+/* ------------------------------------------------------------------ */
+.board {
+  position: absolute;
+  left: 50%;
+  top: 33%;
+  transform: translateX(-50%);
+  perspective: 600px;
+}
+
+.board__slots,
+.board__cards {
+  display: flex;
+  gap: calc(var(--cw-board) * 0.12);
+}
+
+.board__cards {
+  position: absolute;
+  inset: 0;
+}
+
+.board__slot {
+  width: var(--cw-board);
+  height: calc(var(--cw-board) * 1.4);
+  border-radius: calc(var(--cw-board) * 0.11);
+  border: 1px dashed rgb(245 240 229 / 0.12);
+}
+
+.pot {
+  position: absolute;
+  left: 50%;
+  top: calc(33% - 36px);
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 12px 4px 6px;
+  border-radius: var(--radius-pill);
+  background: rgb(11 17 21 / 0.55);
+  border: 1px solid rgb(217 183 121 / 0.2);
+  white-space: nowrap;
+  transition: opacity var(--t-med) ease;
+}
+
+.pot.is-hidden {
+  opacity: 0;
+}
+
+.pot__label {
+  font-size: var(--fs-xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+
+.pot__amount {
+  font-size: var(--fs-sm);
+  font-weight: 650;
+  color: var(--c-cream);
+}
+
+.chip-icon {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, var(--c-champagne) 0 34%, #3b2f1a 36% 40%, transparent 42%),
+    repeating-conic-gradient(var(--c-champagne) 0 22.5deg, #7d6236 22.5deg 45deg);
+  box-shadow:
+    0 0 0 1px rgb(0 0 0 / 0.35),
+    0 2px 4px rgb(0 0 0 / 0.5);
+}
+
+/* ------------------------------------------------------------------ */
+/* Result banner                                                       */
+/* ------------------------------------------------------------------ */
+.banner {
+  position: absolute;
+  left: 50%;
+  /* Takes the pot's place (the pot is empty once the hand is paid out). */
+  top: calc(33% - 6px);
+  transform: translate(-50%, -100%);
+  z-index: 6;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: baseline;
+  column-gap: 8px;
+  width: max-content;
+  max-width: 92%;
+  padding: 6px 16px;
+  border-radius: var(--radius-pill);
+  background: rgb(11 17 21 / 0.92);
+  border: 1px solid rgb(217 183 121 / 0.45);
+  box-shadow: var(--shadow-lift);
+  text-align: center;
+  animation: banner-in 380ms var(--ease-out) both;
+}
+
+.banner[hidden] {
+  display: none;
+}
+
+@media (orientation: portrait) and (max-height: 600px) {
+  /* Too short for a banner: seat tags and the dock status carry the result. */
+  .banner {
+    display: none;
+  }
+}
+
+.banner__title {
+  font-size: var(--fs-md);
+  font-weight: 620;
+  color: var(--c-champagne);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.banner__sub {
+  font-size: var(--fs-xs);
+  color: var(--c-muted);
+}
+
+@keyframes banner-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -80%) scale(0.96);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Seats                                                               */
+/* ------------------------------------------------------------------ */
+.seat {
+  position: absolute;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: max-content;
+  transition: opacity var(--t-med) ease;
+}
+
+.seat[data-pos='top'] {
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.seat[data-pos='left'] {
+  left: 0;
+  top: var(--side-y);
+  transform: translateY(-50%);
+}
+
+.seat[data-pos='right'] {
+  right: 0;
+  top: var(--side-y);
+  transform: translateY(-50%);
+}
+
+.seat[data-pos='bottom'] {
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.seat__cards {
+  display: flex;
+  justify-content: center;
+  min-height: calc(var(--cw-opp) * 1.4);
+  margin-bottom: calc(var(--cw-opp) * -0.45);
+  position: relative;
+  z-index: 0;
+}
+
+.seat__cards .card {
+  --cw: var(--cw-opp);
+}
+
+.seat__cards .card:first-child {
+  rotate: -7deg;
+  margin-right: calc(var(--cw-opp) * -0.32);
+}
+
+.seat__cards .card:last-child:not(:first-child) {
+  rotate: 7deg;
+}
+
+.seat--hero .seat__cards {
+  min-height: calc(var(--cw-hero) * 1.4);
+  margin-bottom: calc(var(--cw-hero) * -0.18);
+  gap: 6px;
+}
+
+.seat--hero .seat__cards .card:is(:first-child, :last-child) {
+  --cw: var(--cw-hero);
+  rotate: none;
+  margin: 0;
+}
+
+/* Hero's last action sits to the left of the plate to save height. */
+.seat--hero .seat__tag {
+  position: absolute;
+  right: calc(50% + 74px);
+  bottom: 30px;
+  margin: 0;
+}
+
+.seat__plate {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px 4px 4px;
+  min-width: 104px;
+  border-radius: var(--radius-pill);
+  background: rgb(11 17 21 / 0.9);
+  border: 1px solid var(--c-line-strong);
+  box-shadow: var(--shadow-soft);
+  transition:
+    border-color var(--t-med) ease,
+    box-shadow var(--t-med) ease,
+    opacity var(--t-med) ease;
+}
+
+.seat__avatar {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 620;
+  font-size: var(--fs-sm);
+  background: var(--avatar-bg, var(--c-charcoal-2));
+  color: var(--avatar-fg, var(--c-cream));
+  border: 1px solid var(--avatar-ring, var(--c-line-strong));
+}
+
+.seat__meta {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+  min-width: 0;
+}
+
+.seat__name {
+  font-size: 0.625rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+
+.seat__stack {
+  font-size: var(--fs-sm);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.seat__tag {
+  margin-top: 4px;
+  padding: 2px 9px;
+  min-height: 18px;
+  border-radius: var(--radius-pill);
+  font-size: 0.6875rem;
+  font-weight: 560;
+  letter-spacing: 0.02em;
+  background: rgb(11 17 21 / 0.75);
+  color: var(--c-cream);
+  white-space: nowrap;
+  max-width: 170px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  animation: tag-in 260ms var(--ease-out) both;
+}
+
+.seat__tag.is-empty {
+  visibility: hidden;
+  animation: none;
+}
+
+.seat__tag.is-dots {
+  visibility: visible;
+  width: 38px;
+  background:
+    radial-gradient(circle, var(--c-champagne) 2px, transparent 2.5px) 9px 50% / 10px 100% repeat-x,
+    rgb(11 17 21 / 0.75);
+  animation: dots 1.2s linear infinite;
+  -webkit-mask: linear-gradient(90deg, #000 0 100%);
+}
+
+@keyframes dots {
+  0% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.45;
+  }
+}
+
+@keyframes tag-in {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+}
+
+.seat__role {
+  position: absolute;
+  z-index: 2;
+  right: -6px;
+  top: -7px;
+  min-width: 22px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: var(--radius-pill);
+  display: grid;
+  place-items: center;
+  font-size: 0.5625rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  background: var(--c-charcoal-2);
+  border: 1px solid var(--c-line-strong);
+  color: var(--c-muted);
+}
+
+.seat__role.is-empty {
+  display: none;
+}
+
+.seat__hint {
+  margin-top: 3px;
+  font-size: var(--fs-xs);
+  color: var(--c-champagne);
+  letter-spacing: 0.02em;
+  min-height: 1.2em;
+  white-space: nowrap;
+}
+
+.seat__hint.is-empty {
+  visibility: hidden;
+}
+
+.seat--hero .seat__plate {
+  min-width: 132px;
+}
+
+/* States */
+.seat.is-acting .seat__plate {
+  border-color: var(--c-champagne);
+  box-shadow:
+    0 0 0 1px rgb(217 183 121 / 0.6),
+    0 0 24px rgb(217 183 121 / 0.3),
+    var(--shadow-soft);
+  animation: pulse-ring 1.8s var(--ease-in-out) infinite;
+}
+
+@keyframes pulse-ring {
+  50% {
+    box-shadow:
+      0 0 0 1px rgb(217 183 121 / 0.9),
+      0 0 30px rgb(217 183 121 / 0.42),
+      var(--shadow-soft);
+  }
+}
+
+.seat[data-status='folded'] .seat__plate,
+.seat[data-status='folded'] .seat__cards {
+  opacity: 0.42;
+}
+
+.seat[data-status='folded'] .seat__tag {
+  color: var(--c-muted);
+}
+
+.seat[data-status='allin'] .seat__tag {
+  background: rgb(199 94 96 / 0.9);
+  color: #fff;
+}
+
+.seat[data-status='out'] {
+  opacity: 0.35;
+}
+
+.seat.is-winner .seat__plate {
+  border-color: var(--c-mint);
+  box-shadow:
+    0 0 0 1px rgb(117 201 162 / 0.7),
+    0 0 26px rgb(117 201 162 / 0.35),
+    var(--shadow-soft);
+}
+
+.seat.is-winner .seat__tag {
+  background: rgb(117 201 162 / 0.16);
+  color: var(--c-mint);
+  border: 1px solid rgb(117 201 162 / 0.35);
+}
+
+/* ------------------------------------------------------------------ */
+/* Bets                                                                */
+/* ------------------------------------------------------------------ */
+.bet {
+  position: absolute;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px 2px 3px;
+  border-radius: var(--radius-pill);
+  background: rgb(11 17 21 / 0.7);
+  font-size: var(--fs-xs);
+  font-weight: 650;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.7);
+  transition:
+    opacity var(--t-med) ease,
+    transform var(--t-med) var(--ease-out);
+  pointer-events: none;
+}
+
+.bet.is-visible {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.bet[data-pos='top'] {
+  left: 50%;
+  top: calc(var(--cw-opp) * 0.95 + 76px);
+}
+
+.bet[data-pos='left'] {
+  left: 126px;
+  top: calc(var(--side-y) - 40px);
+}
+
+.bet[data-pos='right'] {
+  left: calc(100% - 126px);
+  top: calc(var(--side-y) - 40px);
+}
+
+.bet[data-pos='bottom'] {
+  left: 50%;
+  top: calc(100% - var(--cw-hero) * 1.4 - 76px);
+}
+
+/* ------------------------------------------------------------------ */
+/* Dealer button                                                       */
+/* ------------------------------------------------------------------ */
+.dealer-button {
+  position: absolute;
+  z-index: 5;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  color: #10181c;
+  background: radial-gradient(circle at 35% 30%, #fffdf6, #e7dfcd);
+  box-shadow:
+    0 0 0 2px rgb(0 0 0 / 0.25),
+    0 3px 8px rgb(0 0 0 / 0.55);
+  transform: translate(-50%, -50%);
+  transition:
+    left var(--t-slow) var(--ease-in-out),
+    top var(--t-slow) var(--ease-in-out);
+  left: 50%;
+  top: 50%;
+}
+
+.dealer-button[data-pos='top'] {
+  left: calc(50% - 76px);
+  top: calc(var(--cw-opp) * 0.95 + 22px);
+}
+
+.dealer-button[data-pos='left'] {
+  left: 118px;
+  top: calc(var(--side-y) + 34px);
+}
+
+.dealer-button[data-pos='right'] {
+  left: calc(100% - 118px);
+  top: calc(var(--side-y) + 34px);
+}
+
+.dealer-button[data-pos='bottom'] {
+  left: calc(50% + 90px);
+  top: calc(100% - 44px);
+}
+
+/* ------------------------------------------------------------------ */
+/* Effects layer                                                       */
+/* ------------------------------------------------------------------ */
+.fx-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  pointer-events: none;
+}
+
+.flying-chips {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, var(--c-champagne) 0 34%, #3b2f1a 36% 40%, transparent 42%),
+    repeating-conic-gradient(var(--c-champagne) 0 22.5deg, #7d6236 22.5deg 45deg);
+  box-shadow:
+    4px -3px 0 -1px #7d6236,
+    0 4px 10px rgb(0 0 0 / 0.6);
+  transform: translate(-50%, -50%);
+  animation: chips-fly 720ms var(--ease-in-out) both;
+}
+
+@keyframes chips-fly {
+  to {
+    transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(0.85);
+    opacity: 0.2;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Landscape / wide tables                                             */
+/* ------------------------------------------------------------------ */
+@media (orientation: landscape) {
+  .table {
+    --cw-board: clamp(34px, min(6.2vw, 10.5vh), 72px);
+    --cw-hero: clamp(36px, min(6.4vw, 11vh), 76px);
+    --cw-opp: clamp(22px, min(3.4vw, 6vh), 38px);
+  }
+
+  .table__felt {
+    inset: 10% 9% 14%;
+  }
+
+  .table {
+    --side-y: 46%;
+  }
+
+  .board {
+    top: 36%;
+  }
+
+  .pot {
+    top: calc(36% - 34px);
+  }
+
+  .banner {
+    top: calc(36% - 6px);
+    max-width: 60%;
+  }
+
+
+
+
+
+
+
+
+
+
+}
+
+@media (orientation: landscape) and (max-height: 520px) {
+  /* No room for the banner: the result is shown in the dock status line. */
+  .banner {
+    display: none;
+  }
+
+  .seat__tag {
+    margin-top: 2px;
+  }
+
+  .seat__hint {
+    display: none;
+  }
+
+  .seat__plate {
+    padding-block: 2px;
+  }
+
+  .seat__avatar {
+    width: 26px;
+    height: 26px;
+  }
+}

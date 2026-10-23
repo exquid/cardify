@@ -1,0 +1,59 @@
+/* cardify design tokens — "after dark" palette from the brand brief. */
+:root {
+  color-scheme: dark;
+
+  /* Palette */
+  --c-midnight: #0b1115;
+  --c-charcoal: #182227;
+  --c-charcoal-2: #1f2b31;
+  --c-felt: #123d35;
+  --c-felt-hi: #1b5a4b;
+  --c-champagne: #d9b779;
+  --c-champagne-soft: rgb(217 183 121 / 0.16);
+  --c-cream: #f5f0e5;
+  --c-muted: #9ba9a7;
+  --c-ruby: #c75e60;
+  --c-mint: #75c9a2;
+
+  --c-line: rgb(245 240 229 / 0.1);
+  --c-line-strong: rgb(245 240 229 / 0.18);
+  --c-shadow: rgb(0 0 0 / 0.45);
+
+  /* Cards */
+  --card-face: #f8f4ea;
+  --card-red: #b8323a;
+  --card-black: #161c21;
+
+  /* Type */
+  --font-sans: 'Inter Variable', 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+  --fs-xs: 0.6875rem;
+  --fs-sm: 0.8125rem;
+  --fs-md: 0.9375rem;
+  --fs-lg: 1.125rem;
+  --fs-xl: 1.5rem;
+  --tracking-wide: 0.32em;
+
+  /* Shape & depth */
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 22px;
+  --radius-pill: 999px;
+  --shadow-soft: 0 10px 30px -12px var(--c-shadow);
+  --shadow-lift: 0 18px 40px -16px rgb(0 0 0 / 0.7);
+
+  /* Motion (Table Pulse) */
+  --ease-out: cubic-bezier(0.22, 0.8, 0.24, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --t-fast: 160ms;
+  --t-med: 320ms;
+  --t-slow: 520ms;
+
+  /* Touch */
+  --tap: 44px;
+  --gutter: 12px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+}
