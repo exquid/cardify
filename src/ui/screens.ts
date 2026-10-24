@@ -1,6 +1,5 @@
 import { BOT_PROFILES } from '../bots/profiles';
 import { CATEGORY_NAMES, HandCategory } from '../game/evaluator';
-import type { GameState } from '../game/types';
 import type { SessionStats, Settings } from '../storage/session';
 import { h, ICONS, svg } from './dom';
 import { chips, ordinal } from './format';
@@ -15,19 +14,33 @@ export interface StartScreenOptions {
   canContinue: boolean;
   savedHand: number | null;
   notice: string | null;
+  /** Online table this browser can return to. */
+  rejoinCode: string | null;
+  onRejoin(): void;
   onContinue(): void;
   onPlay(): void;
+  onFriends(): void;
   onHowTo(): void;
   onSettings(): void;
 }
 
 export function startScreen(o: StartScreenOptions): HTMLElement {
   const actions = h('div', { class: 'start__actions' });
-  if (o.canContinue) {
+  if (o.rejoinCode) {
     actions.append(
       h('button', {
         class: 'btn btn--primary btn--wide',
-        text: o.savedHand ? `Continue · hand ${o.savedHand}` : 'Continue',
+        text: `Return to table ${o.rejoinCode}`,
+        attrs: { type: 'button' },
+        on: { click: o.onRejoin },
+      }),
+    );
+  }
+  if (o.canContinue) {
+    actions.append(
+      h('button', {
+        class: `btn ${o.rejoinCode ? 'btn--secondary' : 'btn--primary'} btn--wide`,
+        text: o.savedHand ? `Continue solo · hand ${o.savedHand}` : 'Continue solo',
         attrs: { type: 'button' },
         on: { click: o.onContinue },
       }),
@@ -35,10 +48,16 @@ export function startScreen(o: StartScreenOptions): HTMLElement {
   }
   actions.append(
     h('button', {
-      class: `btn ${o.canContinue ? 'btn--secondary' : 'btn--primary'} btn--wide`,
+      class: `btn ${o.canContinue || o.rejoinCode ? 'btn--secondary' : 'btn--primary'} btn--wide`,
       text: o.canContinue ? 'New game · Play Solo' : 'Play Solo',
       attrs: { type: 'button' },
       on: { click: o.onPlay },
+    }),
+    h('button', {
+      class: 'btn btn--secondary btn--wide',
+      text: 'Play with Friends',
+      attrs: { type: 'button' },
+      on: { click: o.onFriends },
     }),
     h(
       'div',
@@ -73,27 +92,28 @@ export function startScreen(o: StartScreenOptions): HTMLElement {
       o.notice ? h('p', { class: 'notice', text: o.notice, attrs: { role: 'status' } }) : null,
       actions,
       lineup,
-      h('p', { class: 'start__meta', text: 'Four-seat Sit & Go · 2,000 chips each · virtual chips only, no real money' }),
+      h('p', { class: 'start__meta', text: 'Solo: four-seat Sit & Go · Friends: private tables for 2–6 · virtual chips only, no real money' }),
     ),
   );
 }
 
 export interface EndScreenOptions {
-  state: GameState;
+  players: ReadonlyArray<{ id: string; name: string; finishPlace: number | null }>;
+  finished: boolean;
   heroId: string;
   stats: SessionStats;
-  onNewGame(): void;
-  onMenu(): void;
+  primary: { label: string; onClick(): void; disabled?: boolean };
+  secondary: { label: string; onClick(): void };
 }
 
 export function endScreen(o: EndScreenOptions): HTMLElement {
-  const hero = o.state.players.find((p) => p.id === o.heroId);
+  const hero = o.players.find((p) => p.id === o.heroId);
   const place = hero?.finishPlace ?? null;
   const won = place === 1;
-  const total = o.state.players.length;
+  const total = o.players.length;
 
   const standings = h('ol', { class: 'standings' });
-  const ranked = [...o.state.players].sort((a, b) => (a.finishPlace ?? 0) - (b.finishPlace ?? 0));
+  const ranked = [...o.players].sort((a, b) => (a.finishPlace ?? 0) - (b.finishPlace ?? 0));
   for (const p of ranked) {
     if (p.finishPlace === null) continue;
     standings.append(
@@ -102,7 +122,7 @@ export function endScreen(o: EndScreenOptions): HTMLElement {
         { class: `standings__row${p.id === o.heroId ? ' is-hero' : ''}` },
         h('span', { class: 'standings__place', text: ordinal(p.finishPlace) }),
         h('span', { class: 'standings__name', text: p.id === o.heroId ? 'You' : p.name }),
-        h('span', { class: 'standings__note', text: p.finishPlace === 1 && o.state.status === 'finished' ? 'Champion' : '' }),
+        h('span', { class: 'standings__note', text: p.finishPlace === 1 && o.finished ? 'Champion' : '' }),
       ),
     );
   }
@@ -131,8 +151,13 @@ export function endScreen(o: EndScreenOptions): HTMLElement {
       h(
         'div',
         { class: 'end__actions' },
-        h('button', { class: 'btn btn--primary btn--wide', text: 'New tournament', attrs: { type: 'button' }, on: { click: o.onNewGame } }),
-        h('button', { class: 'link-btn', text: 'Main menu', attrs: { type: 'button' }, on: { click: o.onMenu } }),
+        h('button', {
+          class: 'btn btn--primary btn--wide',
+          text: o.primary.label,
+          attrs: { type: 'button', disabled: !!o.primary.disabled },
+          on: { click: o.primary.onClick },
+        }),
+        h('button', { class: 'link-btn', text: o.secondary.label, attrs: { type: 'button' }, on: { click: o.secondary.onClick } }),
       ),
     ),
   );
@@ -270,29 +295,37 @@ export interface MenuOptions {
   onSettings(): void;
   onHowTo(): void;
   onLeave(): void;
-  onRestart(): void;
+  leaveLabel: string;
+  /** Asks for a second tap before leaving (online: leaving mid-game folds your hands). */
+  confirmLeave?: string;
+  onRestart?: () => void;
 }
 
 export function menuBody(o: MenuOptions): HTMLElement {
   const item = (label: string, onClick: () => void, extra = ''): HTMLButtonElement =>
     h('button', { class: `menu__item ${extra}`.trim(), text: label, attrs: { type: 'button' }, on: { click: onClick } });
-  let confirmArmed = false;
-  const restart = item('Restart tournament', () => {
-    if (!confirmArmed) {
-      confirmArmed = true;
-      restart.textContent = 'Tap again to abandon this game';
-      restart.classList.add('is-armed');
-      return;
-    }
-    o.onRestart();
-  }, 'menu__item--danger');
+  /** Danger items need a second tap within the same menu. */
+  const armed = (label: string, confirm: string, action: () => void, extra = 'menu__item--danger'): HTMLButtonElement => {
+    let ready = false;
+    const button = item(label, () => {
+      if (!ready) {
+        ready = true;
+        button.textContent = confirm;
+        button.classList.add('is-armed');
+        return;
+      }
+      action();
+    }, extra);
+    return button;
+  };
+  const restart = o.onRestart;
   return h(
     'div',
     { class: 'menu' },
     item('Resume', o.onResume, 'menu__item--primary'),
     item('Settings', o.onSettings),
     item('How to Play', o.onHowTo),
-    item('Leave table — progress is saved', o.onLeave),
-    restart,
+    o.confirmLeave ? armed(o.leaveLabel, o.confirmLeave, o.onLeave, '') : item(o.leaveLabel, o.onLeave),
+    restart ? armed('Restart tournament', 'Tap again to abandon this game', restart) : null,
   );
 }

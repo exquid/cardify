@@ -8,4 +8,4 @@ const root = document.getElementById('app');
 if (!root) throw new Error('#app root element is missing');
 
 const app = new App(root);
-app.showStart();
+app.boot();

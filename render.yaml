@@ -1,0 +1,19 @@
+# Render Blueprint for the cardify table server (WebSocket, Node.js).
+# Render dashboard → New → Blueprint → pick this repository.
+services:
+  - type: web
+    name: cardify-server
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm ci
+    startCommand: npm run server
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # Browser origins allowed to connect (comma-separated). Add your
+      # Netlify or custom domain here if you use one.
+      - key: ALLOWED_ORIGINS
+        value: https://cardify-blue.vercel.app

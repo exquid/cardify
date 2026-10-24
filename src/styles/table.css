@@ -753,3 +753,88 @@
     height: 26px;
   }
 }
+
+/* ------------------------------------------------------------------ */
+/* Larger and smaller tables (online: 2–6 seats)                       */
+/* ------------------------------------------------------------------ */
+.table {
+  --tl-x: 25%;
+  --tr-x: 75%;
+}
+
+.table[data-seats='3'] {
+  --tl-x: 27%;
+  --tr-x: 73%;
+}
+
+.table[data-seats='5'] {
+  --tl-x: 30%;
+  --tr-x: 70%;
+}
+
+.table[data-seats='6'] {
+  --tl-x: 19%;
+  --tr-x: 81%;
+}
+
+.table[data-seats='6'] .seat:not(.seat--hero) .seat__plate {
+  min-width: 0;
+  padding-right: 10px;
+}
+
+.table[data-seats='6'] .seat__name {
+  max-width: 64px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.seat[data-pos='top-left'],
+.seat[data-pos='top-right'] {
+  top: 0;
+  transform: translateX(-50%);
+}
+
+.seat[data-pos='top-left'] {
+  left: var(--tl-x);
+}
+
+.seat[data-pos='top-right'] {
+  left: var(--tr-x);
+}
+
+.bet[data-pos='top-left'],
+.bet[data-pos='top-right'] {
+  top: calc(var(--cw-opp) * 0.95 + 76px);
+}
+
+.bet[data-pos='top-left'] {
+  left: var(--tl-x);
+}
+
+.bet[data-pos='top-right'] {
+  left: var(--tr-x);
+}
+
+.dealer-button[data-pos='top-left'],
+.dealer-button[data-pos='top-right'] {
+  top: calc(var(--cw-opp) * 0.95 + 76px);
+}
+
+.dealer-button[data-pos='top-left'] {
+  left: calc(var(--tl-x) + 44px);
+}
+
+.dealer-button[data-pos='top-right'] {
+  left: calc(var(--tr-x) - 44px);
+}
+
+/* Online presence and turn clock */
+.seat.is-offline .seat__plate {
+  border-style: dashed;
+  opacity: 0.6;
+}
+
+.seat__tag.is-clock {
+  color: var(--c-champagne);
+  font-variant-numeric: tabular-nums;
+}

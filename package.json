@@ -1,8 +1,8 @@
 {
   "name": "cardify",
   "private": true,
-  "version": "0.1.0",
-  "description": "cardify — No-Limit Texas Hold'em in the browser. Texas Hold'em, after dark.",
+  "version": "0.2.0",
+  "description": "cardify \u2014 No-Limit Texas Hold'em in the browser, solo or with friends. Texas Hold'em, after dark.",
   "type": "module",
   "license": "UNLICENSED",
   "engines": {
@@ -11,17 +11,21 @@
   "scripts": {
     "dev": "vite",
     "dev:host": "vite --host",
-    "build": "tsc --noEmit && vite build",
+    "build": "npm run typecheck && vite build",
     "preview": "vite preview",
     "preview:host": "vite preview --host",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.server.json",
     "lint": "eslint .",
-    "check": "npm run typecheck && npm run lint && npm run test && npm run build"
+    "check": "npm run typecheck && npm run lint && npm run test && npm run build",
+    "server": "tsx server/index.ts",
+    "dev:server": "tsx watch server/index.ts"
   },
   "devDependencies": {
     "@eslint/js": "9.39.5",
+    "@types/node": "22.20.5",
+    "@types/ws": "8.18.2",
     "eslint": "9.39.5",
     "globals": "17.13.0",
     "typescript": "6.0.3",
@@ -30,6 +34,8 @@
     "vitest": "5.0.5"
   },
   "dependencies": {
-    "@fontsource-variable/inter": "5.3.0"
+    "@fontsource-variable/inter": "5.3.0",
+    "tsx": "4.23.15",
+    "ws": "8.22.0"
   }
 }

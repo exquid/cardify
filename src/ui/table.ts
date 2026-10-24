@@ -6,8 +6,23 @@ import { markCards, renderCards } from './cards';
 import { h, setText, toggleClass } from './dom';
 import { actionTag, chips, ordinal } from './format';
 
-type SeatPosition = 'bottom' | 'left' | 'top' | 'right';
-const POSITIONS_4: SeatPosition[] = ['bottom', 'left', 'top', 'right'];
+type SeatPosition = 'bottom' | 'left' | 'top-left' | 'top' | 'top-right' | 'right';
+
+/** Clockwise seat placement around the table, starting with the viewer at the bottom. */
+const LAYOUTS: Record<number, SeatPosition[]> = {
+  2: ['bottom', 'top'],
+  3: ['bottom', 'top-left', 'top-right'],
+  4: ['bottom', 'left', 'top', 'right'],
+  5: ['bottom', 'left', 'top-left', 'top-right', 'right'],
+  6: ['bottom', 'left', 'top-left', 'top', 'top-right', 'right'],
+};
+
+/** Per-seat information that does not come from the engine (online presence, turn clock). */
+export interface SeatExtras {
+  offline?: boolean;
+  /** Seconds left on this player's turn clock. */
+  seconds?: number | null;
+}
 
 interface SeatElements {
   root: HTMLElement;
@@ -26,6 +41,7 @@ interface SeatElements {
 export interface TableRenderOptions {
   animate: boolean;
   dealStagger: number;
+  seats?: ReadonlyMap<string, SeatExtras>;
 }
 
 /**
@@ -72,8 +88,10 @@ export class TableRenderer {
     const hero = players.find((p) => p.id === heroId);
     const heroSeat = hero?.seat ?? 0;
     const count = players.length;
+    const layout = LAYOUTS[count] ?? LAYOUTS[6] as SeatPosition[];
+    this.root.dataset.seats = String(count);
     for (const p of players) {
-      const position = POSITIONS_4[(p.seat - heroSeat + count) % count] ?? 'top';
+      const position = layout[(p.seat - heroSeat + count) % count] ?? 'top';
       const seat = this.createSeat(p, position);
       this.seats.set(p.id, seat);
       this.root.append(seat.root, seat.bet);
@@ -154,7 +172,13 @@ export class TableRenderer {
     for (const p of view.players) {
       const seat = this.seats.get(p.id);
       if (!seat) continue;
-      this.updateSeat(seat, p, view, { newHand, animate, stagger: options.dealStagger, tag: tags.get(p.id) ?? '' });
+      this.updateSeat(seat, p, view, {
+        newHand,
+        animate,
+        stagger: options.dealStagger,
+        tag: tags.get(p.id) ?? '',
+        extras: options.seats?.get(p.id) ?? {},
+      });
     }
 
     this.updateHighlights(view, winners);
@@ -165,12 +189,14 @@ export class TableRenderer {
     seat: SeatElements,
     p: PlayerPublicView,
     view: TableView,
-    ctx: { newHand: boolean; animate: boolean; stagger: number; tag: string },
+    ctx: { newHand: boolean; animate: boolean; stagger: number; tag: string; extras: SeatExtras },
   ): void {
     const { root } = seat;
+    const isHero = p.id === this.heroId;
+    const offline = !!ctx.extras.offline && p.status !== 'out';
     root.dataset.status = p.status;
     toggleClass(root, 'is-acting', p.isActing);
-    toggleClass(root, 'is-thinking', p.isActing && p.kind === 'bot');
+    toggleClass(root, 'is-offline', offline);
     setText(seat.stack, p.status === 'out' ? (p.finishPlace ? `Out · ${ordinal(p.finishPlace)}` : 'Out') : chips(p.stack));
 
     // Cards: faces when visible to us, backs otherwise.
@@ -194,10 +220,17 @@ export class TableRenderer {
     setText(seat.role, p.status === 'out' ? '' : p.isSmallBlind && p.isBigBlind ? '' : p.isSmallBlind ? 'SB' : p.isBigBlind ? 'BB' : '');
     toggleClass(seat.role, 'is-empty', seat.role.textContent === '');
 
-    // Tag: thinking / last action / hand at showdown.
-    setText(seat.tag, p.isActing && p.kind === 'bot' ? '' : ctx.tag);
-    toggleClass(seat.tag, 'is-empty', !(p.isActing && p.kind === 'bot') && ctx.tag === '');
-    toggleClass(seat.tag, 'is-dots', p.isActing && p.kind === 'bot');
+    // Tag: thinking dots or turn clock / offline / last action / hand at showdown.
+    const seconds = ctx.extras.seconds ?? null;
+    const thinking = p.isActing && !isHero;
+    const dots = thinking && seconds === null;
+    let tag = ctx.tag;
+    if (thinking && seconds !== null) tag = `${seconds}s`;
+    else if (offline && !p.isActing) tag = tag ? `${tag} · offline` : 'Offline';
+    setText(seat.tag, dots ? '' : tag);
+    toggleClass(seat.tag, 'is-empty', !dots && tag === '');
+    toggleClass(seat.tag, 'is-dots', dots);
+    toggleClass(seat.tag, 'is-clock', thinking && seconds !== null);
 
     // Bet in front of the seat.
     const showBet = p.streetBet > 0 && view.pending?.kind !== 'complete';

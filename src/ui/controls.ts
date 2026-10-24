@@ -16,6 +16,10 @@ export interface ControlsContext {
   autoNextIn: number | null;
   /** True when there is no next hand (tournament over for the hero). */
   final: boolean;
+  /** Whether the player deals the next hand (solo) or the server does (online). */
+  canDealNext: boolean;
+  /** Seconds left on the player's own turn clock (online), or null. */
+  turnSeconds: number | null;
 }
 
 interface Preset {
@@ -125,22 +129,26 @@ export class Controls {
 
     // Status line.
     if (myTurn && legal) {
-      setText(this.status, legal.toCall > 0 ? `Your turn · ${chips(legal.toCall)} to call` : 'Your turn');
+      const clock = ctx.turnSeconds !== null ? ` · ${ctx.turnSeconds}s` : '';
+      setText(this.status, `${legal.toCall > 0 ? `Your turn · ${chips(legal.toCall)} to call` : 'Your turn'}${clock}`);
+      toggleClass(this.status, 'is-urgent', ctx.turnSeconds !== null && ctx.turnSeconds <= 5);
     } else if (complete) {
+      toggleClass(this.status, 'is-urgent', false);
       setText(this.status, ctx.final ? ctx.status : ctx.autoNextIn !== null ? `Next hand in ${ctx.autoNextIn}s` : ctx.status);
     } else {
+      toggleClass(this.status, 'is-urgent', false);
       setText(this.status, ctx.status);
     }
 
     // Buttons.
     const show = (el: HTMLElement, visible: boolean): void => toggleClass(el, 'is-hidden', !visible);
-    show(this.nextBtn, complete && !ctx.final);
+    show(this.nextBtn, complete && !ctx.final && ctx.canDealNext);
     show(this.foldBtn, myTurn);
     show(this.callBtn, myTurn);
     show(this.raiseBtn, myTurn && !!legal?.raise);
     show(this.allInBtn, myTurn && !!legal?.canAllIn && !legal.callIsAllIn);
     for (const b of [this.foldBtn, this.callBtn, this.raiseBtn, this.allInBtn]) b.disabled = !myTurn;
-    this.nextBtn.disabled = !complete || ctx.final;
+    this.nextBtn.disabled = !complete || ctx.final || !ctx.canDealNext;
 
     if (!myTurn || !legal) {
       this.closePanel();
