@@ -141,3 +141,17 @@ describe('table server', () => {
     await expect(evil.opened).rejects.toThrow();
   });
 });
+
+describe('origin allow-list', () => {
+  it('ignores case and trailing slashes and supports wildcards', async () => {
+    const { createOriginMatcher } = await import('../origins');
+    const allow = createOriginMatcher([' https://Cardify-Blue.vercel.app/ ', 'https://cardify-*.vercel.app']);
+    expect(allow('https://cardify-blue.vercel.app')).toBe(true);
+    expect(allow('https://cardify-git-main-exquids-projects.vercel.app')).toBe(true);
+    expect(allow('https://evil.vercel.app')).toBe(false);
+    expect(allow('https://cardify-blue.vercel.app.evil.com')).toBe(false);
+    expect(allow(undefined)).toBe(false);
+    expect(createOriginMatcher([])('https://anything.example')).toBe(true);
+    expect(createOriginMatcher(['*'])('https://anything.example')).toBe(true);
+  });
+});

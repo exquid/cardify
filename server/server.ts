@@ -9,6 +9,7 @@ import {
   type ErrorCode,
   type ServerMessage,
 } from '../src/net/protocol';
+import { createOriginMatcher } from './origins';
 import { DEFAULT_TIMINGS, generateRoomCode, Room, RoomError, type RoomTimings } from './room';
 
 /**
@@ -61,7 +62,8 @@ export function startServer(options: ServerOptions): Promise<RunningServer> {
   const timings = options.timings ?? DEFAULT_TIMINGS;
   const maxRooms = options.maxRooms ?? 500;
   const idleRoomMs = options.idleRoomMs ?? 10 * 60_000;
-  const allowed = new Set((options.allowedOrigins ?? []).filter(Boolean));
+  const originAllowed = createOriginMatcher(options.allowedOrigins ?? []);
+  const reportedOrigins = new Set<string>();
 
   const rooms = new Map<string, Room>();
   const connections = new Map<WebSocket, Connection>();
@@ -70,7 +72,8 @@ export function startServer(options: ServerOptions): Promise<RunningServer> {
 
   const http = createServer((req, res) => {
     if (req.url === '/health') {
-      res.writeHead(200, { 'content-type': 'text/plain' }).end('ok');
+      // Readable cross-origin so the web app can tell "asleep" from "blocked".
+      res.writeHead(200, { 'content-type': 'text/plain', 'access-control-allow-origin': '*', 'cache-control': 'no-store' }).end('ok');
       return;
     }
     res.writeHead(200, { 'content-type': 'text/plain' }).end('cardify table server');
@@ -80,7 +83,15 @@ export function startServer(options: ServerOptions): Promise<RunningServer> {
     server: http,
     path: '/ws',
     maxPayload: MAX_PAYLOAD,
-    verifyClient: ({ origin }: { origin: string; req: IncomingMessage }) => allowed.size === 0 || allowed.has(origin),
+    verifyClient: ({ origin }: { origin: string; req: IncomingMessage }) => {
+      if (originAllowed(origin)) return true;
+      // Log each refused origin once so a misconfigured ALLOWED_ORIGINS is easy to spot.
+      if (!reportedOrigins.has(origin) && reportedOrigins.size < 50) {
+        reportedOrigins.add(origin);
+        log(`refused WebSocket from origin "${origin}" — add it to ALLOWED_ORIGINS to allow it`);
+      }
+      return false;
+    },
   });
 
   const send = (conn: Connection, message: ServerMessage): void => {

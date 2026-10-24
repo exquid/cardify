@@ -136,3 +136,30 @@ export function resolveServerUrl(): string | null {
     host.endsWith('.local');
   return local ? `ws://${host}:8787/ws` : null;
 }
+
+/** https://host/health for a ws(s)://host/ws server address. */
+export function healthUrl(serverUrl: string): string {
+  const url = new URL(serverUrl);
+  url.protocol = url.protocol === 'wss:' ? 'https:' : 'http:';
+  url.pathname = '/health';
+  url.search = '';
+  return url.toString();
+}
+
+/**
+ * Plain HTTP request to the server's health check. Free hosting puts idle
+ * servers to sleep; an early request starts waking it while the player is
+ * still typing their name. Resolves true only when the server answered "ok".
+ */
+export async function probeServer(serverUrl: string, timeoutMs = 8000): Promise<boolean> {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(healthUrl(serverUrl), { cache: 'no-store', signal: controller.signal });
+    return res.ok && (await res.text()).trim() === 'ok';
+  } catch {
+    return false;
+  } finally {
+    window.clearTimeout(timer);
+  }
+}

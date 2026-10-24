@@ -1,5 +1,5 @@
 import type { TableView } from '../game/views';
-import { NetClient, type ConnectionStatus } from '../net/client';
+import { NetClient, probeServer, type ConnectionStatus } from '../net/client';
 import type { ClientMessage, LobbyView, ServerMessage, TableMeta } from '../net/protocol';
 import { emptyStats, type SessionStats } from '../storage/session';
 import type { SeatExtras } from './table';
@@ -28,6 +28,13 @@ interface OnlineSave {
 
 const SAVE_KEY = 'cardify.online.v1';
 const SLOW_CONNECT_MS = 4000;
+/** First health probe after a connection attempt starts. */
+const WATCHDOG_FIRST_MS = 8000;
+const WATCHDOG_EVERY_MS = 5000;
+/** Server answers /health but the socket still fails this long: it refuses us. */
+const BLOCKED_AFTER_HEALTHY_MS = 12_000;
+/** Give up waiting for a sleeping server after this long. */
+const GIVE_UP_MS = 120_000;
 
 function loadSave(): OnlineSave {
   try {
@@ -85,6 +92,7 @@ export class OnlineController {
   private ticker: number | undefined;
   private endTimer: number | undefined;
   private slowTimer: number | undefined;
+  private watchdog: number | undefined;
 
   constructor(
     private readonly shell: Shell,
@@ -95,6 +103,8 @@ export class OnlineController {
     this.entry = { code: prefillCode, error: null, busy: null };
     this.mode = 'entry';
     this.renderEntry();
+    // Start waking a sleeping free-tier server while the player types.
+    if (this.url) void probeServer(this.url);
   }
 
   /** Goes straight back to the saved table (start screen shortcut). */
@@ -107,6 +117,7 @@ export class OnlineController {
     window.clearInterval(this.ticker);
     window.clearTimeout(this.endTimer);
     window.clearTimeout(this.slowTimer);
+    window.clearTimeout(this.watchdog);
     this.client?.close();
     this.client = null;
     this.shell.setActive(null);
@@ -134,6 +145,7 @@ export class OnlineController {
       this.onOpen();
       return;
     }
+    this.startWatchdog();
     this.client?.close();
     this.client = new NetClient(this.url, {
       onOpen: () => this.onOpen(),
@@ -141,6 +153,49 @@ export class OnlineController {
       onStatus: (s, detail) => this.onStatus(s, detail),
     });
     this.client.connect();
+  }
+
+  /**
+   * While the entry screen waits, checks /health so a stuck attempt ends with
+   * a clear reason instead of an endless spinner: the server is asleep and
+   * unreachable, or it is awake but refuses this site's origin.
+   */
+  private startWatchdog(): void {
+    window.clearTimeout(this.watchdog);
+    const url = this.url;
+    if (!url) return;
+    const started = Date.now();
+    let healthySince: number | null = null;
+    const check = async (): Promise<void> => {
+      if (this.mode !== 'entry' || !this.entry.busy) return;
+      const healthy = await probeServer(url);
+      if (this.mode !== 'entry' || !this.entry.busy) return;
+      const now = Date.now();
+      if (healthy) healthySince ??= now;
+      if (healthySince !== null && now - healthySince >= BLOCKED_AFTER_HEALTHY_MS) {
+        this.failConnect(
+          `The table server is running but refused this page (${location.origin}). ` +
+            'On Render, open the service → Environment and add this address to ALLOWED_ORIGINS (or set it to *), then save.',
+        );
+        return;
+      }
+      if (now - started >= GIVE_UP_MS) {
+        this.failConnect("Can't reach the table server right now. It may still be waking up — wait a minute and try again.");
+        return;
+      }
+      this.watchdog = window.setTimeout(() => void check(), WATCHDOG_EVERY_MS);
+    };
+    this.watchdog = window.setTimeout(() => void check(), WATCHDOG_FIRST_MS);
+  }
+
+  private failConnect(message: string): void {
+    window.clearTimeout(this.watchdog);
+    window.clearTimeout(this.slowTimer);
+    this.client?.close();
+    this.client = null;
+    this.entry.busy = null;
+    this.entry.error = message;
+    this.renderEntry();
   }
 
   private onOpen(): void {
@@ -170,6 +225,7 @@ export class OnlineController {
     switch (msg.t) {
       case 'welcome':
         window.clearTimeout(this.slowTimer);
+        window.clearTimeout(this.watchdog);
         this.playerId = msg.playerId;
         this.save = { ...this.save, code: msg.code, token: msg.token };
         writeSave(this.save);
@@ -208,6 +264,7 @@ export class OnlineController {
     if (this.mode === 'entry') {
       if (code === 'not-found' && this.save.token) this.forgetTable();
       window.clearTimeout(this.slowTimer);
+      window.clearTimeout(this.watchdog);
       this.entry.busy = null;
       this.entry.error = message;
       this.renderEntry();
