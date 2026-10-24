@@ -82,7 +82,16 @@ export class TableRenderer {
     this.dealerButton = h('div', { class: 'dealer-button', text: 'D', attrs: { 'aria-hidden': 'true' } });
     this.fxLayer = h('div', { class: 'fx-layer', attrs: { 'aria-hidden': 'true' } });
 
-    const felt = h('div', { class: 'table__felt' });
+    const felt = h(
+      'div',
+      { class: 'table__felt' },
+      h(
+        'div',
+        { class: 'table__print', attrs: { 'aria-hidden': 'true' } },
+        h('span', { class: 'table__print-script', text: 'cardify' }),
+        h('span', { class: 'table__print-line', text: 'Cocktail Lounge · Est. 1958' }),
+      ),
+    );
     this.root = h('div', { class: 'table' }, felt, this.potEl, board, this.banner);
 
     const hero = players.find((p) => p.id === heroId);

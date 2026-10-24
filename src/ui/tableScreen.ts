@@ -76,7 +76,7 @@ export class TableScreen {
       : null;
     this.handInfo = h('div', { class: 'topbar__info' });
     const brand = h('div', { class: 'topbar__brand', attrs: { 'aria-hidden': 'true' } });
-    brand.append(svg(ICONS.logo), h('span', { class: 'wordmark wordmark--small', text: 'cardify' }));
+    brand.append(h('span', { class: 'brand__script', text: 'cardify' }));
 
     this.feedText = h('span', { class: 'feed__text', text: 'Shuffling up and dealing…' });
     const feed = h(

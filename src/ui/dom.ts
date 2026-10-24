@@ -56,6 +56,8 @@ export function replayClass(el: HTMLElement, name: string): void {
 }
 
 export const ICONS = {
+  /** Atomic-age starburst, the lounge's signage ornament. */
+  star: `<svg viewBox="0 0 40 40" aria-hidden="true" class="star-mark"><path d="M20 0l2.6 15.4L38 18l-15.4 2.6L20 40l-2.6-19.4L2 18l15.4-2.6z" fill="currentColor"/><path d="M20 8l1.4 9.2 7.1-5.7-5.7 7.1L32 20l-9.2 1.4 5.7 7.1-7.1-5.7L20 32l-1.4-9.2-7.1 5.7 5.7-7.1L8 20l9.2-1.4-5.7-7.1 7.1 5.7z" fill="currentColor" opacity=".55"/></svg>`,
   logo: `<svg viewBox="0 0 64 64" aria-hidden="true" class="logo-mark"><g fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M32 11C25 20 15 26 15 35c0 6 5 9.5 10 8.5 3.2-.7 5.6-3 7-5.5-.4 6-2.6 10.5-6.5 14"/><path d="M32 11c7 9 17 15 17 24 0 6-5 9.5-10 8.5-3.2-.7-5.6-3-7-5.5.4 6 2.6 10.5 6.5 14"/></g></svg>`,
   menu: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>`,
   soundOn: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4h3l4 3.5v-11L7 10H4z" fill="currentColor"/><path d="M15 9.2a4 4 0 0 1 0 5.6M17.6 6.8a7.5 7.5 0 0 1 0 10.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>`,

@@ -4,10 +4,18 @@ import type { SessionStats, Settings } from '../storage/session';
 import { h, ICONS, svg } from './dom';
 import { chips, ordinal } from './format';
 
-function logo(className = ''): HTMLElement {
-  const wrap = h('div', { class: `brand ${className}`.trim() });
-  wrap.append(svg(ICONS.logo), h('span', { class: 'wordmark', text: 'cardify' }));
-  return wrap;
+/** Motel-sign wordmark; the hero variant adds the lounge's subtitle. */
+export function logo(className = ''): HTMLElement {
+  const hero = className.includes('brand--hero');
+  const star = h('span', { class: 'brand__star' });
+  star.append(svg(ICONS.star));
+  return h(
+    'div',
+    { class: `brand ${className}`.trim() },
+    h('span', { class: 'brand__sign' }, star, h('span', { class: 'brand__script', text: 'cardify' })),
+    hero ? h('span', { class: 'brand__sub', text: 'Cocktail Lounge · Card Room' }) : null,
+    hero ? h('span', { class: 'brand__est', text: 'Est. 1958' }) : null,
+  );
 }
 
 export interface StartScreenOptions {
@@ -127,27 +135,42 @@ export function endScreen(o: EndScreenOptions): HTMLElement {
     );
   }
 
+  const headline = won
+    ? 'Victory'
+    : place === 2
+      ? 'So close'
+      : 'Knocked out';
   return h(
     'main',
     { class: `screen screen--end ${won ? 'is-victory' : 'is-defeat'}` },
     h(
       'div',
       { class: 'end' },
-      logo('brand--small'),
-      h('p', { class: 'eyebrow', text: 'Tournament complete' }),
-      h('h1', { class: 'end__title', text: won ? 'Victory' : 'Defeat' }),
-      h('p', {
-        class: 'end__place',
-        text: place ? `You finished ${ordinal(place)} of ${total}` : 'The tournament is over',
-      }),
       h(
-        'dl',
-        { class: 'stats' },
-        stat('Hands played', chips(o.stats.handsPlayed)),
-        stat('Hands won', chips(o.stats.handsWon)),
-        stat('Biggest pot', chips(o.stats.biggestPotWon)),
+        'article',
+        { class: 'paper', attrs: { 'aria-label': 'Tournament results' } },
+        h(
+          'header',
+          { class: 'paper__masthead' },
+          h('span', { class: 'paper__name', text: 'The Cardify Evening Post' }),
+          h('span', { class: 'paper__dateline', text: 'Late edition · Table report · 5¢' }),
+        ),
+        h('p', { class: 'paper__kicker', text: 'Tournament complete' }),
+        h('h1', { class: 'end__title', text: headline }),
+        h('p', {
+          class: 'end__place',
+          text: place ? `You finished ${ordinal(place)} of ${total}` : 'The tournament is over',
+        }),
+        h(
+          'dl',
+          { class: 'stats' },
+          stat('Hands played', chips(o.stats.handsPlayed)),
+          stat('Hands won', chips(o.stats.handsWon)),
+          stat('Biggest pot', chips(o.stats.biggestPotWon)),
+        ),
+        h('h2', { class: 'paper__section', text: 'Final standings' }),
+        standings,
       ),
-      standings,
       h(
         'div',
         { class: 'end__actions' },

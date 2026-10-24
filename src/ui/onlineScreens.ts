@@ -1,10 +1,9 @@
 import { NAME_MAX_LENGTH, ROOM_CODE_LENGTH, type LobbyView } from '../net/protocol';
 import { h, ICONS, svg } from './dom';
+import { logo } from './screens';
 
 function brand(): HTMLElement {
-  const wrap = h('div', { class: 'brand brand--small' });
-  wrap.append(svg(ICONS.logo), h('span', { class: 'wordmark', text: 'cardify' }));
-  return wrap;
+  return logo('brand--small');
 }
 
 export interface EntryOptions {
@@ -237,7 +236,6 @@ export function lobbyScreen(o: LobbyOptions): HTMLElement {
       'div',
       { class: 'lobby' },
       brand(),
-      h('p', { class: 'eyebrow', text: 'Private table' }),
       copyCode,
       h('p', { class: 'online__lead', text: 'Friends open cardify, tap Play with Friends and enter this code — or just send them the link.' }),
       copyLink,

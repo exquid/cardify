@@ -1,4 +1,6 @@
-import '@fontsource-variable/inter';
+import '@fontsource-variable/jost';
+import '@fontsource/yellowtail';
+import '@fontsource/dm-serif-display';
 import './styles/tokens.css';
 import './styles/main.css';
 import './styles/table.css';

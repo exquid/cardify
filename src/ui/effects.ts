@@ -82,28 +82,54 @@ export class SoundBoard {
     switch (name) {
       case 'card':
       case 'deal':
-        this.noiseBurst(t, 0.045, 3200, 1.2, name === 'deal' ? 0.5 : 0.7);
+        this.noiseBurst(t, 0.05, 2600, 1.1, name === 'deal' ? 0.45 : 0.6);
         break;
       case 'chip':
-        this.tone(t, 2600, 0.05, 0.22, 'triangle');
-        this.tone(t + 0.035, 3300, 0.06, 0.16, 'triangle');
-        this.noiseBurst(t, 0.03, 5000, 2, 0.25);
+        // Clay chips: two low clacks rather than a bright click.
+        this.tone(t, 1500, 0.045, 0.2, 'triangle');
+        this.tone(t + 0.04, 1950, 0.05, 0.14, 'triangle');
+        this.noiseBurst(t, 0.035, 3200, 1.6, 0.2);
         break;
       case 'check':
-        this.tone(t, 170, 0.07, 0.5, 'sine');
-        this.tone(t + 0.09, 150, 0.07, 0.4, 'sine');
+        // Knuckles on felt.
+        this.tone(t, 140, 0.08, 0.5, 'sine');
+        this.tone(t + 0.1, 125, 0.08, 0.4, 'sine');
         break;
       case 'fold':
-        this.noiseBurst(t, 0.14, 900, 0.7, 0.35);
+        this.noiseBurst(t, 0.16, 700, 0.6, 0.3);
         break;
       case 'turn':
-        this.tone(t, 659, 0.16, 0.12, 'sine');
-        this.tone(t + 0.1, 880, 0.22, 0.1, 'sine');
+        // Soft two-note bell, like a hotel desk chime heard from the bar.
+        this.tone(t, 784, 0.35, 0.08, 'sine');
+        this.tone(t + 0.13, 659.25, 0.45, 0.07, 'sine');
         break;
       case 'win':
-        [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => this.tone(t + i * 0.09, f, 0.5, 0.11, 'sine'));
+        // Vibraphone-style major seventh (C E G B).
+        [523.25, 659.25, 783.99, 987.77].forEach((f, i) => this.vibe(t + i * 0.11, f, 1.3, 0.09));
         break;
     }
+  }
+
+  /** Sine note with a gentle tremolo, a nod to the lounge vibraphone. */
+  private vibe(start: number, freq: number, duration: number, gain: number): void {
+    const ctx = this.ctx as AudioContext;
+    const osc = ctx.createOscillator();
+    const env = ctx.createGain();
+    const lfo = ctx.createOscillator();
+    const depth = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq, start);
+    lfo.frequency.setValueAtTime(5.5, start);
+    depth.gain.setValueAtTime(gain * 0.35, start);
+    env.gain.setValueAtTime(0, start);
+    env.gain.linearRampToValueAtTime(gain, start + 0.012);
+    env.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+    lfo.connect(depth).connect(env.gain);
+    osc.connect(env).connect(this.master as GainNode);
+    osc.start(start);
+    lfo.start(start);
+    osc.stop(start + duration + 0.05);
+    lfo.stop(start + duration + 0.05);
   }
 
   private tone(start: number, freq: number, duration: number, gain: number, type: OscillatorType): void {
