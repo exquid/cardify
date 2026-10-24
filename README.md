@@ -80,7 +80,7 @@ Vercel не держит постоянные WebSocket-соединения, п
 1. Зарегистрируйся на [render.com](https://render.com) через GitHub и дай доступ к репозиторию `cardify`.
 2. **New → Blueprint** → выбери репозиторий. Render прочитает `render.yaml` и создаст сервис `cardify-server` (бесплатный тариф, Франкфурт).
 3. Когда деплой станет зелёным, скопируй адрес сервиса, например `https://cardify-server.onrender.com`. Проверка: `https://…/health` отвечает `ok`.
-4. В Vercel: **Project → Settings → Environment Variables** → `VITE_SERVER_URL` = `wss://cardify-server.onrender.com/ws`, затем **Redeploy**.
+4. Пропиши адрес в `.env.production` (`VITE_SERVER_URL=wss://<сервис>.onrender.com/ws`) и запушь. Vite подставит его при сборке на любом хостинге. Сейчас там уже стоит `wss://cardify-iwqm.onrender.com/ws`. Переменная с тем же именем в дашборде Vercel или Netlify имеет приоритет.
 5. Если игра открывается и с другого домена (Netlify, свой домен), добавь его через запятую в `ALLOWED_ORIGINS` на Render.
 
 Подойдёт и любой другой Node-хостинг (Railway, Fly.io, VPS): нужны `npm ci` и `npm run server`, порт берётся из `PORT`.
