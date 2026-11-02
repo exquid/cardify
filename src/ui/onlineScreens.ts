@@ -1,10 +1,12 @@
 import { NAME_MAX_LENGTH, ROOM_CODE_LENGTH, type LobbyView } from '../net/protocol';
+import { brand, loadingLine, notice } from './components';
 import { h, ICONS, svg } from './dom';
 
-function brand(): HTMLElement {
-  const wrap = h('div', { class: 'brand brand--small' });
-  wrap.append(svg(ICONS.logo), h('span', { class: 'wordmark', text: 'cardify' }));
-  return wrap;
+/** Shared header for screens outside the table: a way back and the brand. */
+function roombar(backLabel: string, onBack: () => void): HTMLElement {
+  const back = h('button', { class: 'roombar__back', attrs: { type: 'button' }, on: { click: onBack } });
+  back.append(svg(ICONS.back), h('span', { text: backLabel }));
+  return h('header', { class: 'roombar' }, back, brand('bar'));
 }
 
 export interface EntryOptions {
@@ -113,15 +115,15 @@ export function entryScreen(o: EntryOptions): HTMLElement {
 
   return h(
     'main',
-    { class: 'screen screen--online' },
+    { class: 'screen screen--room screen--online' },
+    roombar('Card room', o.onBack),
     h(
       'div',
-      { class: 'online' },
-      brand(),
+      { class: 'panel online' },
       h('h1', { class: 'online__title', text: 'Play with friends' }),
-      h('p', { class: 'online__lead', text: 'Private tables for 2–6 players. The host can fill empty seats with Nova, Vex or Orion.' }),
-      o.unavailable ? h('p', { class: 'notice', text: o.unavailable }) : null,
-      o.busy ? h('p', { class: 'online__busy', attrs: { role: 'status' }, text: o.busy }) : null,
+      h('p', { class: 'online__lead', text: 'Private tables for 2 to 6 players. The host can fill empty seats with Nova, Vex or Orion.' }),
+      o.unavailable ? notice(o.unavailable, 'error') : null,
+      o.busy ? loadingLine(o.busy) : null,
       h(
         'div',
         { class: 'field' },
@@ -140,7 +142,6 @@ export function entryScreen(o: EntryOptions): HTMLElement {
       h('div', { class: 'divider', attrs: { role: 'separator' } }, h('span', { text: 'or join a friend' })),
       joinForm,
       errorLine,
-      h('button', { class: 'link-btn', text: 'Back', attrs: { type: 'button' }, on: { click: o.onBack } }),
     ),
   );
 }
@@ -188,7 +189,7 @@ export function lobbyScreen(o: LobbyOptions): HTMLElement {
       h(
         'li',
         { class: `seats__row${seat.kind === 'human' && !seat.connected ? ' is-offline' : ''}`, dataset: { profile: seat.botProfile ?? 'human' } },
-        h('span', { class: 'seats__avatar', text: seat.name.charAt(0), attrs: { 'aria-hidden': 'true' } }),
+        h('span', { class: 'seats__avatar avatar', text: seat.name.charAt(0), attrs: { 'aria-hidden': 'true' } }),
         h('span', { class: 'seats__name', text: seat.name }),
         badges,
         remove,
@@ -214,7 +215,7 @@ export function lobbyScreen(o: LobbyOptions): HTMLElement {
     actions.append(
       h('button', {
         class: 'btn btn--primary btn--wide',
-        text: lobby.canStart ? `Start game · ${lobby.seats.length} players` : 'Start game',
+        text: lobby.canStart ? `Start game with ${lobby.seats.length} players` : 'Start game',
         attrs: { type: 'button', disabled: !lobby.canStart },
         on: { click: o.onStart },
       }),
@@ -232,19 +233,19 @@ export function lobbyScreen(o: LobbyOptions): HTMLElement {
 
   return h(
     'main',
-    { class: 'screen screen--lobby' },
+    { class: 'screen screen--room screen--lobby' },
+    roombar('Leave table', o.onLeave),
     h(
       'div',
-      { class: 'lobby' },
-      brand(),
-      h('p', { class: 'eyebrow', text: 'Private table' }),
+      { class: 'panel lobby' },
+      h('h1', { class: 'online__title', text: 'Your private table' }),
+      h('p', { class: 'online__lead', text: 'Friends open cardify, choose Play with friends and enter this code. Or send them the invite link.' }),
       copyCode,
-      h('p', { class: 'online__lead', text: 'Friends open cardify, tap Play with Friends and enter this code — or just send them the link.' }),
       copyLink,
-      o.connection ? h('p', { class: 'online__busy', attrs: { role: 'status' }, text: o.connection }) : null,
+      o.connection ? loadingLine(o.connection) : null,
+      h('h2', { class: 'lobby__h', text: `Seats ${lobby.seats.length} of ${lobby.maxSeats}` }),
       seats,
       actions,
-      h('button', { class: 'link-btn', text: 'Leave table', attrs: { type: 'button' }, on: { click: o.onLeave } }),
     ),
   );
 }

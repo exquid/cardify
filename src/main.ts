@@ -1,4 +1,5 @@
-import '@fontsource-variable/inter';
+import '@fontsource-variable/fraunces/soft.css';
+import '@fontsource-variable/onest';
 import './styles/tokens.css';
 import './styles/main.css';
 import './styles/table.css';

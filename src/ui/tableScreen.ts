@@ -3,6 +3,7 @@ import type { GameEvent, PlayerAction } from '../game/types';
 import type { TableView } from '../game/views';
 import type { Settings } from '../storage/session';
 import { Controls } from './controls';
+import { brand } from './components';
 import { h, ICONS, setText, svg } from './dom';
 import { flyChips, PULSE, type SoundBoard } from './effects';
 import { chips, describeEvent, ordinal } from './format';
@@ -74,23 +75,24 @@ export class TableScreen {
     this.speedBtn = onSpeed
       ? h('button', { class: 'icon-btn icon-btn--text', attrs: { type: 'button' }, on: { click: () => onSpeed() } })
       : null;
-    this.handInfo = h('div', { class: 'topbar__info' });
-    const brand = h('div', { class: 'topbar__brand', attrs: { 'aria-hidden': 'true' } });
-    brand.append(svg(ICONS.logo), h('span', { class: 'wordmark wordmark--small', text: 'cardify' }));
+    this.handInfo = h('div', { class: 'topbar__info', attrs: { role: 'group' } });
+    const mark = brand('bar');
+    mark.classList.add('topbar__brand');
+    mark.setAttribute('aria-hidden', 'true');
 
     this.feedText = h('span', { class: 'feed__text', text: 'Shuffling up and dealing…' });
     const feed = h(
       'button',
       { class: 'feed', attrs: { type: 'button', 'aria-label': 'Show hand history' }, on: { click: () => hooks.onHistory(this.history) } },
       this.feedText,
-      h('span', { class: 'feed__more', text: 'Log', attrs: { 'aria-hidden': 'true' } }),
+      h('span', { class: 'feed__more', text: 'History', attrs: { 'aria-hidden': 'true' } }),
     );
     this.live = h('div', { class: 'sr-only', attrs: { 'aria-live': 'polite', 'aria-atomic': 'true' } });
 
     this.root = h(
       'div',
       { class: 'screen screen--game' },
-      h('header', { class: 'topbar' }, menuBtn, brand, this.handInfo, h('div', { class: 'topbar__tools' }, this.speedBtn, this.soundBtn)),
+      h('header', { class: 'topbar' }, menuBtn, mark, this.handInfo, h('div', { class: 'topbar__tools' }, this.speedBtn, this.soundBtn)),
       h('section', { class: 'stage', attrs: { 'aria-label': 'Poker table' } }, this.table.root),
       feed,
       this.controls.root,
@@ -162,15 +164,20 @@ export class TableScreen {
 
   private updateTopbar(view: TableView): void {
     const next = view.handsUntilNextLevel;
+    const stat = (label: string, value: string, extra = ''): HTMLElement =>
+      h('span', { class: `topbar__stat ${extra}`.trim() }, h('span', { class: 'topbar__k', text: label }), h('span', { class: 'topbar__v', text: value }));
     this.handInfo.replaceChildren(
-      h('span', {
-        class: 'topbar__hand',
-        text: `${view.handNumber > 0 ? `Hand ${view.handNumber}` : 'Sit & Go'} · Blinds ${chips(view.smallBlind)}/${chips(view.bigBlind)}`,
-      }),
-      h('span', {
-        class: 'topbar__next',
-        text: `Level ${view.level} · next ${chips(view.nextBlinds.smallBlind)}/${chips(view.nextBlinds.bigBlind)} in ${next} ${next === 1 ? 'hand' : 'hands'}`,
-      }),
+      stat(view.handNumber > 0 ? 'Hand' : 'Sit & Go', view.handNumber > 0 ? String(view.handNumber) : 'Ready'),
+      stat('Blinds', `${chips(view.smallBlind)}/${chips(view.bigBlind)}`),
+      stat(
+        `Level ${view.level}, next`,
+        `${chips(view.nextBlinds.smallBlind)}/${chips(view.nextBlinds.bigBlind)} in ${next} ${next === 1 ? 'hand' : 'hands'}`,
+        'topbar__stat--next',
+      ),
+    );
+    this.handInfo.setAttribute(
+      'aria-label',
+      `${view.handNumber > 0 ? `Hand ${view.handNumber}` : 'Sit and Go'}, blinds ${chips(view.smallBlind)} and ${chips(view.bigBlind)}, level ${view.level}`,
     );
   }
 

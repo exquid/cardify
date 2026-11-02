@@ -8,18 +8,26 @@ export function cardElement(card: Card | null): HTMLDivElement {
   }
   // U+FE0E forces text (not emoji) presentation of the suit glyph on iOS.
   const suit = `${SUIT_SYMBOLS[card.suit]}\uFE0E`;
-  const el = h(
+  const rank = rankLabel(card.rank);
+  const court = card.rank >= 11 && card.rank <= 13;
+  const index = (extra: string): HTMLElement =>
+    h(
+      'span',
+      { class: `card__index${extra}`, attrs: { 'aria-hidden': 'true' } },
+      h('span', { class: 'card__rank', text: rank }),
+      h('span', { class: 'card__suit', text: suit }),
+    );
+  return h(
     'div',
     {
-      class: `card ${isRedSuit(card.suit) ? 'card--red' : 'card--black'}`,
+      class: `card ${isRedSuit(card.suit) ? 'card--red' : 'card--black'}${court ? ' card--court' : ''}`,
       attrs: { role: 'img', 'aria-label': cardName(card) },
       dataset: { code: cardCode(card) },
     },
-    h('span', { class: 'card__rank', text: rankLabel(card.rank), attrs: { 'aria-hidden': 'true' } }),
-    h('span', { class: 'card__suit', text: suit, attrs: { 'aria-hidden': 'true' } }),
-    h('span', { class: 'card__pip', text: suit, attrs: { 'aria-hidden': 'true' } }),
+    index(''),
+    h('span', { class: 'card__center', text: court ? rank : suit, attrs: { 'aria-hidden': 'true' } }),
+    index(' card__index--flip'),
   );
-  return el;
 }
 
 function signature(cards: readonly (Card | null)[]): string {

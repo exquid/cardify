@@ -1,6 +1,6 @@
 import type { LegalActions, PlayerAction } from '../game/types';
 import type { TableView } from '../game/views';
-import { h, ICONS, setText, svg, toggleClass } from './dom';
+import { h, ICONS, setText, softFocus, svg, toggleClass } from './dom';
 import { chips } from './format';
 
 export interface ControlsCallbacks {
@@ -49,6 +49,9 @@ export class Controls {
   private readonly allInBtn: HTMLButtonElement;
   private readonly nextBtn: HTMLButtonElement;
   private readonly panel: HTMLElement;
+  private readonly confirm: HTMLElement;
+  private readonly confirmText: HTMLElement;
+  private readonly confirmGo: HTMLButtonElement;
   private readonly panelVerb: HTMLElement;
   private readonly panelAmount: HTMLElement;
   private readonly panelNote: HTMLElement;
@@ -111,7 +114,21 @@ export class Controls {
       presets,
     );
 
-    this.root = h('div', { class: 'dock' }, this.panel, this.status, this.actions);
+    // All-in confirmation: exact amount, explicit confirm and cancel.
+    this.confirmText = h('p', { class: 'confirm__text' });
+    this.confirmGo = button('btn btn--danger', 'All-in', () => this.onAllInClick());
+    const cancel = button('btn btn--ghost', 'Cancel', () => {
+      this.disarmAllIn();
+      this.allInBtn.focus({ preventScroll: true });
+    });
+    this.confirm = h(
+      'div',
+      { class: 'confirm', attrs: { hidden: true, role: 'group', 'aria-label': 'Confirm all-in' } },
+      this.confirmText,
+      h('div', { class: 'confirm__actions' }, cancel, this.confirmGo),
+    );
+
+    this.root = h('div', { class: 'dock' }, this.panel, this.confirm, this.status, this.actions);
   }
 
   update(view: TableView, ctx: ControlsContext): void {
@@ -129,8 +146,8 @@ export class Controls {
 
     // Status line.
     if (myTurn && legal) {
-      const clock = ctx.turnSeconds !== null ? ` · ${ctx.turnSeconds}s` : '';
-      setText(this.status, `${legal.toCall > 0 ? `Your turn · ${chips(legal.toCall)} to call` : 'Your turn'}${clock}`);
+      const clock = ctx.turnSeconds !== null ? `, ${ctx.turnSeconds}s left` : '';
+      setText(this.status, `${legal.toCall > 0 ? `Your turn: ${chips(legal.toCall)} to call` : 'Your turn'}${clock}`);
       toggleClass(this.status, 'is-urgent', ctx.turnSeconds !== null && ctx.turnSeconds <= 5);
     } else if (complete) {
       toggleClass(this.status, 'is-urgent', false);
@@ -159,13 +176,13 @@ export class Controls {
     toggleClass(this.foldBtn, 'is-quiet', legal.canCheck);
     this.foldBtn.setAttribute('aria-label', legal.canCheck ? 'Fold (checking is free)' : 'Fold');
     if (legal.canCheck) {
-      setText(this.callBtn, 'Check');
+      setLabel(this.callBtn, 'Check');
       this.callBtn.setAttribute('aria-label', 'Check');
     } else {
-      const label = legal.callIsAllIn ? `Call ${chips(legal.callAmount)} · All-in` : `Call ${chips(legal.callAmount)}`;
-      setText(this.callBtn, label);
-      this.callBtn.setAttribute('aria-label', label);
+      setLabel(this.callBtn, legal.callIsAllIn ? 'Call all-in' : 'Call', chips(legal.callAmount));
+      this.callBtn.setAttribute('aria-label', `${legal.callIsAllIn ? 'Call all-in' : 'Call'} ${chips(legal.callAmount)}`);
     }
+    toggleClass(this.foldBtn, 'is-facing', !legal.canCheck);
 
     if (!sameDecision) {
       this.closePanel();
@@ -211,7 +228,7 @@ export class Controls {
 
   focusPrimary(): void {
     const target = [this.callBtn, this.nextBtn].find((b) => !b.classList.contains('is-hidden') && !b.disabled);
-    target?.focus({ preventScroll: true });
+    softFocus(target);
   }
 
   private send(action: PlayerAction): void {
@@ -249,7 +266,13 @@ export class Controls {
     // First tap arms, second tap confirms — all-in is never a single mis-tap.
     this.allInArmedUntil = now + 3000;
     this.allInBtn.classList.add('is-armed');
-    setText(this.allInBtn, `Confirm ${chips(this.legal.allInTo)}`);
+    setLabel(this.allInBtn, 'Confirm', chips(this.legal.allInTo));
+    this.allInBtn.setAttribute('aria-label', `Confirm all-in for ${chips(this.legal.allInTo)}`);
+    setText(this.confirmText, `Go all-in for ${chips(this.legal.allInTo)}?`);
+    setLabel(this.confirmGo, 'All-in', chips(this.legal.allInTo));
+    this.confirmGo.setAttribute('aria-label', `Confirm all-in for ${chips(this.legal.allInTo)}`);
+    this.confirm.hidden = false;
+    this.root.classList.add('is-confirming');
     window.clearTimeout(this.allInTimer);
     this.allInTimer = window.setTimeout(() => this.disarmAllIn(), 3000);
   }
@@ -258,7 +281,11 @@ export class Controls {
     this.allInArmedUntil = 0;
     window.clearTimeout(this.allInTimer);
     this.allInBtn.classList.remove('is-armed');
-    setText(this.allInBtn, 'All-in');
+    this.confirm.hidden = true;
+    this.root.classList.remove('is-confirming');
+    const to = this.legal?.canAllIn ? chips(this.legal.allInTo) : undefined;
+    setLabel(this.allInBtn, 'All-in', to);
+    this.allInBtn.setAttribute('aria-label', to ? `All-in for ${to}, asks to confirm` : 'All-in');
   }
 
   private openPanel(): void {
@@ -345,13 +372,29 @@ export class Controls {
     if (!option) return;
     const verb = option.kind === 'bet' ? 'Bet' : 'Raise';
     let label: string;
-    if (!this.panelOpen) label = verb;
-    else if (this.amount === option.max) label = `All-in ${chips(this.amount)}`;
-    else label = option.kind === 'bet' ? `Bet ${chips(this.amount)}` : `Raise to ${chips(this.amount)}`;
-    setText(this.raiseBtn, label);
-    this.raiseBtn.setAttribute('aria-label', this.panelOpen ? `Confirm: ${label}` : `${verb} — choose amount`);
+    if (!this.panelOpen) {
+      setLabel(this.raiseBtn, verb, `from ${chips(option.min)}`);
+      label = verb;
+    } else if (this.amount === option.max) {
+      setLabel(this.raiseBtn, 'All-in', chips(this.amount));
+      label = `All-in ${chips(this.amount)}`;
+    } else {
+      const v = option.kind === 'bet' ? 'Bet' : 'Raise to';
+      setLabel(this.raiseBtn, v, chips(this.amount));
+      label = `${v} ${chips(this.amount)}`;
+    }
+    this.raiseBtn.setAttribute('aria-label', this.panelOpen ? `Confirm: ${label}` : `${verb}, choose an amount from ${chips(option.min)}`);
     toggleClass(this.raiseBtn, 'is-confirm', this.panelOpen);
   }
+}
+
+/** Two-line action label: the verb, and the exact amount when there is one. */
+function setLabel(btn: HTMLButtonElement, verb: string, amount?: string): void {
+  const key = `${verb}|${amount ?? ''}`;
+  if (btn.dataset.label === key) return;
+  btn.dataset.label = key;
+  btn.replaceChildren(h('span', { class: 'btn__verb', text: verb }), amount ? h('span', { class: 'btn__amt', text: amount }) : '');
+  toggleClass(btn, 'has-amount', !!amount);
 }
 
 function button(className: string, label: string, onClick: () => void): HTMLButtonElement {

@@ -17,10 +17,10 @@ import {
   type SessionStats,
   type Settings,
 } from '../storage/session';
-import { h } from './dom';
+import { softFocus } from './dom';
 import { applyMotion, prefersReducedMotion, PULSE, SoundBoard } from './effects';
 import { OnlineController, savedTableCode, type Shell } from './online';
-import { endScreen, howToPlayBody, menuBody, openSheet, settingsBody, startScreen } from './screens';
+import { endScreen, historyBody, howToPlayBody, menuBody, openSheet, settingsBody, startScreen } from './screens';
 import { describeStatus, TableScreen, type FrameContext, type TableScreenEnv } from './tableScreen';
 
 /**
@@ -118,12 +118,12 @@ export class App implements Shell {
           this.mountSolo();
         },
         onPlay: () => this.newTournament(),
-        onFriends: () => this.openOnline(),
+        onFriends: (code) => this.openOnline(code ?? ''),
         onHowTo: () => this.openHowTo(),
         onSettings: () => this.openSettings(),
       }),
     );
-    (this.root.querySelector('.btn--primary') as HTMLElement | null)?.focus({ preventScroll: true });
+    softFocus(this.root.querySelector<HTMLElement>('.btn--primary'));
   }
 
   setActive(screen: TableScreen | null): void {
@@ -144,13 +144,11 @@ export class App implements Shell {
   }
 
   openHowTo(): void {
-    this.sheet('How to Play', howToPlayBody());
+    this.sheet('How to play', howToPlayBody());
   }
 
   openHistory(lines: readonly string[]): void {
-    const list = h('ol', { class: 'history' });
-    for (const line of [...lines].reverse()) list.append(h('li', { text: line }));
-    this.sheet('Table log', list);
+    this.sheet('Hand history', historyBody(lines));
   }
 
   toggleSound(): void {
@@ -225,7 +223,7 @@ export class App implements Shell {
       secondary: { label: 'Main menu', onClick: () => this.showStart() },
     });
     this.root.replaceChildren(screen);
-    (screen.querySelector('.btn--primary') as HTMLElement | null)?.focus({ preventScroll: true });
+    softFocus(screen.querySelector<HTMLElement>('.btn--primary'));
   }
 
   /** Replace the state after an engine command and update everything derived from it. */
@@ -396,7 +394,7 @@ export class App implements Shell {
           this.persist();
           this.showStart();
         }),
-        leaveLabel: 'Leave table — progress is saved',
+        leaveLabel: 'Leave table (progress is saved)',
         onRestart: then(() => {
           clearSession();
           this.newTournament();

@@ -54,6 +54,9 @@ export class TableRenderer {
   readonly fxLayer: HTMLElement;
   readonly potEl: HTMLElement;
   private readonly potAmount: HTMLElement;
+  private readonly potMain: HTMLElement;
+  private readonly potRound: HTMLElement;
+  private readonly potRoundAmount: HTMLElement;
   private readonly boardCards: HTMLElement;
   private readonly banner: HTMLElement;
   private readonly bannerTitle: HTMLElement;
@@ -63,14 +66,18 @@ export class TableRenderer {
   private lastHandNumber = -1;
 
   constructor(private readonly heroId: string, players: readonly PlayerPublicView[]) {
+    // Collected pot and this street's bets are shown separately, exactly as the view reports them.
     this.potAmount = h('strong', { class: 'pot__amount', text: '0' });
-    this.potEl = h(
+    this.potMain = h(
       'div',
-      { class: 'pot', attrs: { 'aria-label': 'Pot' } },
+      { class: 'pot__main' },
       h('span', { class: 'chip-icon', attrs: { 'aria-hidden': 'true' } }),
       h('span', { class: 'pot__label', text: 'Pot' }),
       this.potAmount,
     );
+    this.potRoundAmount = h('span', { class: 'pot__round-amount' });
+    this.potRound = h('div', { class: 'pot__round' }, h('span', { text: 'Bets this round' }), this.potRoundAmount);
+    this.potEl = h('div', { class: 'pot', attrs: { role: 'group', 'aria-label': 'Pot' } }, this.potMain, this.potRound);
     this.boardCards = h('div', { class: 'board__cards' });
     const slots = h('div', { class: 'board__slots', attrs: { 'aria-hidden': 'true' } });
     for (let i = 0; i < 5; i++) slots.append(h('div', { class: 'board__slot' }));
@@ -82,8 +89,9 @@ export class TableRenderer {
     this.dealerButton = h('div', { class: 'dealer-button', text: 'D', attrs: { 'aria-hidden': 'true' } });
     this.fxLayer = h('div', { class: 'fx-layer', attrs: { 'aria-hidden': 'true' } });
 
-    const felt = h('div', { class: 'table__felt' });
-    this.root = h('div', { class: 'table' }, felt, this.potEl, board, this.banner);
+    const felt = h('div', { class: 'table__felt' }, h('span', { class: 'table__print', text: 'cardify', attrs: { 'aria-hidden': 'true' } }));
+    const rail = h('div', { class: 'table__rail' }, felt);
+    this.root = h('div', { class: 'table' }, rail, this.potEl, board, this.banner);
 
     const hero = players.find((p) => p.id === heroId);
     const heroSeat = hero?.seat ?? 0;
@@ -156,10 +164,20 @@ export class TableRenderer {
       enterClass: 'is-revealing',
     });
 
-    // Pot: chips gathered from previous streets.
-    const showPot = view.pending?.kind !== 'complete' && view.collectedPot > 0;
-    toggleClass(this.potEl, 'is-hidden', !showPot);
+    // Pot: chips gathered from previous streets, plus this street's bets in front of the seats.
+    const roundBets = view.totalPot - view.collectedPot;
+    const live = view.pending?.kind !== 'complete';
+    const showMain = live && view.collectedPot > 0;
+    const showRound = live && roundBets > 0;
+    toggleClass(this.potEl, 'is-hidden', !showMain && !showRound);
+    toggleClass(this.potMain, 'is-empty', !showMain);
+    toggleClass(this.potRound, 'is-empty', !showRound);
     setText(this.potAmount, chips(view.collectedPot));
+    setText(this.potRoundAmount, chips(roundBets));
+    this.potEl.setAttribute(
+      'aria-label',
+      showMain || showRound ? `Pot ${chips(view.collectedPot)}${showRound ? `, bets this round ${chips(roundBets)}` : ''}` : 'Pot',
+    );
 
     // Dealer button.
     const dealer = view.players.find((p) => p.isDealer);
