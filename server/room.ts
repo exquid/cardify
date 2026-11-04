@@ -57,6 +57,8 @@ export const DEFAULT_TIMINGS: RoomTimings = {
 
 /** Consecutive timeouts after which a player is treated as away. */
 const AWAY_AFTER_TIMEOUTS = 2;
+/** Consecutive failed scheduled steps tolerated before the table is closed. */
+const MAX_STEP_FAILURES = 2;
 
 export interface RoomDeps {
   now(): number;
@@ -106,6 +108,10 @@ export class Room {
   private timer: unknown = null;
   private turnDeadline: number | null = null;
   private nextHandAt: number | null = null;
+  /** Consecutive scheduled steps that threw (reset by any successful step). */
+  private stepFailures = 0;
+  /** Set when the table could not recover from a failing step; it is then closed. */
+  private broken = false;
 
   constructor(
     readonly code: string,
@@ -176,6 +182,7 @@ export class Room {
   }
 
   findByToken(token: string): Member | undefined {
+    if (this.broken) return undefined;
     return this.members.find((m) => m.token === token && !m.left);
   }
 
@@ -243,6 +250,7 @@ export class Room {
 
   /** True when no human is connected and nothing happened for `idleMs`. */
   isAbandoned(now: number, idleMs: number): boolean {
+    if (this.broken) return true;
     const humansLeft = this.members.some((m) => m.kind === 'human' && !m.left);
     if (!humansLeft) return true;
     return this.connectedHumans() === 0 && now - this.lastActivity > idleMs;
@@ -292,6 +300,7 @@ export class Room {
   }
 
   rematch(byId: string): void {
+    if (this.broken) throw new RoomError('not-found', 'This table was closed');
     this.requireHost(byId);
     this.requirePhase('finished', 'bad-request', 'The current game is not over yet');
     this.clearTimer();
@@ -370,16 +379,63 @@ export class Room {
     const seq = this.state?.seq;
     this.timer = this.deps.setTimer(() => {
       this.timer = null;
-      if (!this.state || this.state.seq !== seq) return;
+      if (!this.state || this.state.seq !== seq || this.broken) return;
       try {
         this.state = step(this.state);
+        this.stepFailures = 0;
       } catch (error) {
-        // Never let a bug in one room take the server down; keep the table alive.
+        // Never let a bug in one room take the server down, and never leave the
+        // table silently frozen either.
         console.error(`[room ${this.code}] scheduled step failed`, error);
+        this.recover();
         return;
       }
       this.schedule();
     }, Math.max(0, Math.round(ms)));
+  }
+
+  /**
+   * A scheduled step threw. A pending player decision is resolved with the
+   * safe default (check, else fold — always legal); dealing, showdown and the
+   * next hand are retried. If that keeps failing, the table is closed cleanly.
+   */
+  private recover(): void {
+    this.stepFailures += 1;
+    const state = this.state;
+    if (state && this.stepFailures <= MAX_STEP_FAILURES) {
+      const pending = state.hand?.pending;
+      if (pending?.kind === 'action') {
+        try {
+          const legal = getLegalActions(state, pending.playerId);
+          if (legal) {
+            this.state = applyPlayerAction(state, pending.playerId, legal.canCheck ? { type: 'check' } : { type: 'fold' }, state.seq);
+            this.schedule();
+            return;
+          }
+        } catch (error) {
+          console.error(`[room ${this.code}] safe fallback action failed`, error);
+        }
+      } else {
+        this.schedule(); // plans the same step again for the same state
+        return;
+      }
+    }
+    this.closeBroken();
+  }
+
+  /** Gives up on this table: stops every timer and sends players back to the start screen. */
+  private closeBroken(): void {
+    this.broken = true;
+    this.clearTimer();
+    this.turnDeadline = null;
+    this.nextHandAt = null;
+    this.phase = 'finished';
+    console.error(`[room ${this.code}] closed after repeated failures`);
+    for (const m of this.members) {
+      if (m.kind === 'human' && m.connected) {
+        this.deps.send(m.id, { t: 'error', code: 'not-found', message: 'This table ran into a problem and was closed. Sorry about that.' });
+      }
+    }
   }
 
   private clearTimer(): void {

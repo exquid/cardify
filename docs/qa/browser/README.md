@@ -29,6 +29,7 @@ node --experimental-transform-types --import ./docs/qa/browser/register.mjs docs
 | Script | Checks | Pass condition |
 | --- | --- | --- |
 | `regress-bug-s1-01.mts` | BUG-S1-01 (dead action controls after an undelivered tap, a reconnect, or a server refusal), BUG-S1-02 (stale "reconnecting" line), BUG-S1-04 (fractional slider amount with an odd big blind) | `10 passed, 0 failed`, exit 0. Before the fixes: 6 failed. |
+| `stage2-online.mts [hands]` | Stage 2: two real browsers at one table (privacy of every frame, convergence, taps by the waiting player never sent, both players drop and reconnect, no stalls) and the protocol-mismatch notice | `8 passed, 0 failed`, exit 0 |
 | `solo-ui.mts [turns]` | P15/P16 in solo: the dock matches `getLegalActions` on every hero turn; double clicks/keys commit exactly one action; slider presets give whole amounts in range; pause, leave/continue and restart during a pending bot timer are inert | `"findings": 0`, no page errors, exit 0 |
 | `shots.mts <dir> [--fixed]` | Screenshots of the start screen and solo table (iPhone 13, 1280×800). `--fixed` uses one seeded saved game, so builds can be compared | — |
 | `compare.mts <before> <after>` | Pixel comparison of two `shots.mts --fixed` folders | `0 … pixels differ` for every image, exit 0 |

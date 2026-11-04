@@ -1,6 +1,6 @@
 import type { TableView } from '../game/views';
 import { NetClient, probeServer, type ConnectionStatus } from '../net/client';
-import type { ClientMessage, LobbyView, ServerMessage, TableMeta } from '../net/protocol';
+import { PROTOCOL_VERSION, type ClientMessage, type LobbyView, type ServerMessage, type TableMeta } from '../net/protocol';
 import { emptyStats, type SessionStats } from '../storage/session';
 import type { SeatExtras } from './table';
 import { describeStatus, TableScreen, type FrameContext, type TableScreenEnv } from './tableScreen';
@@ -232,6 +232,14 @@ export class OnlineController {
       case 'welcome':
         window.clearTimeout(this.slowTimer);
         window.clearTimeout(this.watchdog);
+        if (msg.v !== PROTOCOL_VERSION) {
+          // The table server speaks a different protocol (usually a fresh deploy
+          // while this tab is still open). Keep the seat token so a reload can
+          // resume, but stop talking to a server we may misunderstand.
+          this.dispose();
+          this.shell.showStart('cardify was updated. Reload the page to keep playing.');
+          return;
+        }
         this.playerId = msg.playerId;
         this.save = { ...this.save, code: msg.code, token: msg.token };
         writeSave(this.save);
