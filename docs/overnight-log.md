@@ -52,3 +52,8 @@ Rules: [`durak-rules.md`](durak-rules.md). All rule choices are marked **[decisi
 - Durak games now **save and continue** after a reload ("Continue game · bout N"), with a strict validator (2 tests + browser check).
 - **Not done (needs a backend and accounts, i.e. your decision):** friends, invites beyond table codes, presence, blocking/reporting, server-side stats, avatars beyond initials. Online results are not counted in the profile.
 - **Rough edge:** poker results are counted only when the tournament ends for you in this browser; this is covered by code review, not by a browser test (a full Sit & Go is long to automate).
+
+## Stage 6 — Release 🟡 checklist ready, deploy is yours
+- [`release-checklist.md`](release-checklist.md): 14 items with evidence and owner. Done: static checks, rules, multiplayer, Durak, cross-game regression, dependency review, secrets. Waiting for you: real devices, environment check after the merge, staged rollout.
+- `npm audit --omit=dev`: 0 vulnerabilities in shipped code. Dev-only: 7 moderate in `minimatch` (inside `typescript-eslint`); **not fixed** because the fix is a breaking `--force` upgrade — your call.
+- README updated: open games, test count, links to all the new docs.
