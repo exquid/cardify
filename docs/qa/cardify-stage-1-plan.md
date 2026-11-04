@@ -1,6 +1,6 @@
 # CARDIFY — Stage 1 (Poker Core QA) Plan
 
-Status: **Step A and Step B complete — Step C awaits owner approval.** Results: [`cardify-poker-core-qa.md`](cardify-poker-core-qa.md).
+Status: **Stage 1 complete (Steps A–C). Gate: PASS (local).** Results: [`cardify-poker-core-qa.md`](cardify-poker-core-qa.md).
 Prepared: 2026-11-03 · Branch: `claude/youthful-pascal-rmmfom` · Base commit: `98c0241` (Walnut Club redesign)
 Source brief: `CARDIFY_Post_Redesign_Roadmap_Claude_Code.md` (Stage 1, Section 4 Step A)
 
