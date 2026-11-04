@@ -1,4 +1,7 @@
+import { GAMES, type GameEntry, type GameStatus } from '../hub/catalog';
 import { h, ICONS, svg } from './dom';
+
+export { GAMES, type GameEntry, type GameStatus };
 
 /**
  * Shared presentation pieces of the cardify design system (see docs/DESIGN.md).
@@ -11,44 +14,9 @@ export function brand(variant: 'hero' | 'bar' | 'small' = 'bar'): HTMLElement {
   return wrap;
 }
 
-export type GameStatus = 'open' | 'soon';
-
 export function statusBadge(status: GameStatus): HTMLElement {
   return h('span', { class: `status status--${status}`, text: status === 'open' ? 'Open now' : 'Coming soon' });
 }
-
-export interface GameEntry {
-  id: 'holdem' | 'durak' | 'blackjack';
-  name: string;
-  blurb: string;
-  players: string;
-  status: GameStatus;
-}
-
-/** The card room's catalogue. Only games with status "open" can be played. */
-export const GAMES: readonly GameEntry[] = [
-  {
-    id: 'holdem',
-    name: "Texas Hold'em",
-    blurb: 'No-Limit. A four-seat Sit & Go against bots, or a private table for 2 to 6.',
-    players: '2–6 players',
-    status: 'open',
-  },
-  {
-    id: 'durak',
-    name: 'Durak',
-    blurb: 'The classic shedding game: beat every attack or pick up the cards.',
-    players: '2–4 players',
-    status: 'soon',
-  },
-  {
-    id: 'blackjack',
-    name: 'Blackjack',
-    blurb: 'Twenty-one against the dealer, one shoe at a time.',
-    players: '1–5 players',
-    status: 'soon',
-  },
-];
 
 /**
  * A game shown as a tuck box on the shelf. Open games get a real action;
