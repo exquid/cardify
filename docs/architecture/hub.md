@@ -12,7 +12,7 @@ src/hub/pokerGame.ts      poker behind the contract (thin adapter)
 src/durak/game.ts         Durak behind the contract
 src/hub/catalog.ts        the catalogue: id, name, status, modes (solo/online)
 src/ui/…                  shells: poker solo (app.ts), online poker (online.ts), Durak solo (durak/)
-server/room.ts            online tables — still poker-specific (see "Next")
+server/room.ts            online tables for any TableGame (Hold'em by default, Durak by choice)
 ```
 
 ## The contract
@@ -37,12 +37,12 @@ Rules a game must follow: states are plain JSON, commands are pure, `seq` increa
 
 ## Decisions taken during the overnight run (reversible)
 
-1. **The poker shells were not migrated.** `ui/app.ts` (solo) and `server/room.ts` (online) still call the poker engine directly. Migrating working, tested code without review was judged riskier than the benefit. The adapter proves the contract fits.
+1. **The solo poker shell was not migrated.** `ui/app.ts` still calls the poker engine directly; it works and is tested, so it stays. **The server room was migrated** (second half of the night): `Room<S, A, V>` takes any `TableGame`, defaults to poker, and passed every pre-existing server test unchanged, plus both poker browser regressions.
 2. **Card primitives stay in `src/game/cards.ts` and `deck.ts`.** They are already game-agnostic (Durak uses them as is). Moving them to `src/cards/` is a mechanical follow-up.
 3. **The Durak solo shell is its own controller** (`ui/durak/durakController.ts`) and uses `TableGame` only. It is the template for future games.
 
 ## Next (not done)
 
-- Generalize `server/room.ts` to `Room<TableGame>`: lobby, seats, tokens, timers and broadcasting are already game-agnostic; only `start/act/schedule/autoAct/getPlayerView` need to go through the contract. Then online Durak needs only catalogue `modes.online = true` and a lobby game picker.
+- ~~Generalize `server/room.ts`~~ — done: online Durak tables run on the same room code path (`create` carries `game`, `state`/`lobby` report it; table size = min(6, game.maxPlayers)).
 - Move the poker solo shell onto a generic "solo driver" shared with Durak.
 - Blackjack: a third `TableGame` implementation (dealer as an automatic actor).

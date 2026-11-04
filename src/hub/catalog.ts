@@ -29,7 +29,7 @@ export const GAMES: readonly GameEntry[] = [
     blurb: 'The classic shedding game: beat every attack or pick up the cards.',
     players: '2–4 players',
     status: 'open',
-    modes: { solo: true, online: false },
+    modes: { solo: true, online: true },
   },
   {
     id: 'blackjack',

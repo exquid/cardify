@@ -1,4 +1,6 @@
 import type { TableView } from '../game/views';
+import type { DurakView } from '../durak/views';
+import { DurakScreen, durakRulesBody } from './durak/durakScreen';
 import { NetClient, probeServer, type ConnectionStatus } from '../net/client';
 import { PROTOCOL_VERSION, type ClientMessage, type LobbyView, type ServerMessage, type TableMeta } from '../net/protocol';
 import { loadProfile } from '../storage/profile';
@@ -18,7 +20,7 @@ export interface Shell {
   openHistory(lines: readonly string[]): void;
   toggleSound(): void;
   showStart(notice?: string | null): void;
-  setActive(screen: TableScreen | null): void;
+  setActive(screen: { handleKey(e: KeyboardEvent): void; refreshTools(): void } | null): void;
 }
 
 interface OnlineSave {
@@ -84,6 +86,9 @@ export class OnlineController {
   /** serverNow − Date.now(), so countdowns match the server clock. */
   private clockOffset = 0;
   private screen: TableScreen | null = null;
+  /** Online Durak tables use the same screen as solo Durak. */
+  private durakView: DurakView | null = null;
+  private durakScreen: DurakScreen | null = null;
   private screenKey = '';
   /** The next state is a fresh snapshot (connect/reconnect): no replayed sounds. */
   private snapshot = true;
@@ -216,16 +221,27 @@ export class OnlineController {
       return;
     }
     if (this.mode === 'lobby') this.renderLobby();
-    if (this.mode === 'game' && status === 'reconnecting') this.screen?.notify('Connection lost — reconnecting…');
-    else if (this.mode === 'game' && status === 'open' && previous === 'reconnecting') this.screen?.notify('Reconnected.');
+    if (this.mode === 'game' && status === 'reconnecting') this.notifyGame('Connection lost — reconnecting…');
+    else if (this.mode === 'game' && status === 'open' && previous === 'reconnecting') this.notifyGame('Reconnected.');
   }
 
   private send(message: ClientMessage): void {
     if (!this.client?.send(message)) {
-      this.screen?.notify('Not connected — your tap was not sent. Reconnecting…');
+      this.notifyGame('Not connected — your tap was not sent. Reconnecting…');
       // The tap never left this device, so the same decision must stay playable.
-      this.screen?.rerender();
+      this.releaseGame();
     }
+  }
+
+  private notifyGame(line: string): void {
+    this.screen?.notify(line);
+    this.durakScreen?.notify(line);
+  }
+
+  /** Lets the player act again on the decision on screen (after a refused or undelivered tap). */
+  private releaseGame(): void {
+    this.screen?.rerender();
+    this.durakScreen?.release();
   }
 
   private onMessage(msg: ServerMessage): void {
@@ -246,20 +262,27 @@ export class OnlineController {
         writeSave(this.save);
         // Back after a reconnect: a tap made before the drop either reached the
         // table (a new state follows) or was lost, so accept input again.
-        this.screen?.rerender();
+        this.releaseGame();
         return;
       case 'lobby':
         this.lobby = msg.lobby;
         this.view = null;
+        this.durakView = null;
+        this.durakScreen = null;
         this.meta = null;
         window.clearTimeout(this.endTimer);
         this.mode = 'lobby';
         this.renderLobby();
         return;
       case 'state':
-        this.view = msg.view;
         this.meta = msg.table;
         this.clockOffset = msg.table.serverNow - Date.now();
+        if (msg.game === 'durak') {
+          this.durakView = msg.view;
+          this.renderDurak();
+          return;
+        }
+        this.view = msg.view;
         if (this.mode !== 'end') this.renderGame();
         return;
       case 'error':
@@ -294,8 +317,8 @@ export class OnlineController {
       this.shell.showStart('That table has closed.');
       return;
     }
-    this.screen?.notify(message);
-    this.screen?.rerender();
+    this.notifyGame(message);
+    this.releaseGame();
   }
 
   private forgetTable(): void {
@@ -328,9 +351,9 @@ export class OnlineController {
           : "Online play isn't switched on for this copy of cardify yet: the table server address is missing.",
         busy: this.entry.busy,
         error: this.entry.error,
-        onCreate: (name) => {
+        onCreate: (name, game) => {
           this.rememberName(name);
-          this.connectWith({ t: 'create', name });
+          this.connectWith({ t: 'create', name, game });
         },
         onJoin: (code, name) => {
           this.rememberName(name);
@@ -355,6 +378,7 @@ export class OnlineController {
     const lobby = this.lobby;
     if (!lobby) return;
     this.screen = null;
+    this.durakScreen = null;
     this.screenKey = '';
     this.stats = emptyStats();
     this.countedHand = -1;
@@ -406,6 +430,40 @@ export class OnlineController {
     }
     window.clearTimeout(this.endTimer);
     if (view.status === 'finished') this.endTimer = window.setTimeout(() => this.showEnd(), 3000);
+  }
+
+  /** An online Durak table: the solo Durak screen, fed by the server. */
+  private renderDurak(): void {
+    const view = this.durakView;
+    const heroId = this.playerId;
+    if (!view || !heroId) return;
+    if (!this.durakScreen || this.mode !== 'game') {
+      this.screen = null;
+      this.durakScreen = new DurakScreen(heroId, view, this.shell.env.sound, () => this.shell.env.settings().sound, {
+        onAction: (action, seq) => this.send({ t: 'act', action, seq }),
+        onMenu: () => this.openMenu(),
+        onToggleSound: () => this.shell.toggleSound(),
+        onHistory: (lines) => this.shell.openHistory(lines),
+        onPlayAgain: () => {
+          if (this.meta?.hostId === heroId) this.send({ t: 'rematch' });
+          else this.durakScreen?.notify('Waiting for the host to start again…');
+        },
+        onLeave: () => this.leave(),
+      });
+      this.shell.root.replaceChildren(this.durakScreen.root);
+      this.shell.setActive(this.durakScreen);
+    }
+    this.mode = 'game';
+    this.snapshot = false;
+    this.durakScreen.render(view);
+    const tick = (): void => {
+      const deadline = this.meta?.turnDeadline;
+      const seconds = deadline ? Math.max(0, Math.ceil((deadline - (Date.now() + this.clockOffset)) / 1000)) : null;
+      this.durakScreen?.setClock(seconds);
+    };
+    tick();
+    window.clearInterval(this.ticker);
+    if (this.meta?.turnDeadline) this.ticker = window.setInterval(tick, 500);
   }
 
   private frame(effects: boolean): FrameContext {
@@ -475,7 +533,10 @@ export class OnlineController {
   }
 
   private openMenu(): void {
-    const midGame = this.view?.status === 'running' && this.view.players.find((p) => p.id === this.playerId)?.status !== 'out';
+    const durak = this.durakView;
+    const midGame = durak
+      ? durak.pending.kind !== 'over' && !durak.players.find((p) => p.id === this.playerId)?.out
+      : this.view?.status === 'running' && this.view.players.find((p) => p.id === this.playerId)?.status !== 'out';
     let dialog: HTMLDialogElement | null = null;
     const then = (fn: () => void) => () => {
       dialog?.close();
@@ -486,10 +547,10 @@ export class OnlineController {
       menuBody({
         onResume: then(() => undefined),
         onSettings: then(() => this.shell.openSettings()),
-        onHowTo: then(() => this.shell.openHowTo()),
+        onHowTo: then(() => (durak ? this.shell.sheet('How to play Durak', durakRulesBody()) : this.shell.openHowTo())),
         onLeave: then(() => this.leave()),
         leaveLabel: 'Leave table',
-        ...(midGame ? { confirmLeave: 'Tap again — your seat will fold every hand' } : {}),
+        ...(midGame ? { confirmLeave: durak ? 'Tap again — your seat will play itself out' : 'Tap again — your seat will fold every hand' } : {}),
       }),
     );
   }

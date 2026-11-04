@@ -1,5 +1,9 @@
+import { isCard } from '../game/cards';
 import type { BotProfileId, PlayerAction, PlayerKind } from '../game/types';
 import type { TableView } from '../game/views';
+import type { DurakAction } from '../durak/types';
+import type { DurakView } from '../durak/views';
+import type { GameId } from '../hub/tableGame';
 
 /**
  * Wire protocol between the browser and the authoritative table server.
@@ -16,19 +20,22 @@ export const NAME_MAX_LENGTH = 16;
 export const ROOM_CODE_LENGTH = 5;
 /** Unambiguous characters only (no 0/O, 1/I/L). */
 export const ROOM_CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+/** Games a private table can host. */
+export const TABLE_GAMES = ['holdem', 'durak'] as const;
+export type TableGameId = (typeof TABLE_GAMES)[number] & GameId;
 
 // ---------------------------------------------------------------------------
 // Client → server
 // ---------------------------------------------------------------------------
 
 export type ClientMessage =
-  | { t: 'create'; name: string }
+  | { t: 'create'; name: string; game: TableGameId }
   | { t: 'join'; code: string; name: string }
   | { t: 'resume'; code: string; token: string }
   | { t: 'add-bot' }
   | { t: 'remove-seat'; playerId: string }
   | { t: 'start' }
-  | { t: 'act'; action: PlayerAction; seq: number }
+  | { t: 'act'; action: PlayerAction | DurakAction; seq: number }
   | { t: 'rematch' }
   | { t: 'leave' }
   | { t: 'ping' };
@@ -47,6 +54,7 @@ export interface SeatInfo {
 
 export interface LobbyView {
   code: string;
+  game: TableGameId;
   hostId: string;
   you: string;
   seats: SeatInfo[];
@@ -82,7 +90,8 @@ export type ErrorCode =
 export type ServerMessage =
   | { t: 'welcome'; v: number; code: string; token: string; playerId: string }
   | { t: 'lobby'; lobby: LobbyView }
-  | { t: 'state'; view: TableView; table: TableMeta }
+  | { t: 'state'; game: 'holdem'; view: TableView; table: TableMeta }
+  | { t: 'state'; game: 'durak'; view: DurakView; table: TableMeta }
   | { t: 'error'; code: ErrorCode; message: string }
   | { t: 'left' }
   | { t: 'pong' };
@@ -120,9 +129,20 @@ function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
 
-function parseAction(v: unknown): PlayerAction | null {
+function parseAction(v: unknown): PlayerAction | DurakAction | null {
   if (!isObject(v)) return null;
   switch (v.type) {
+    // Durak (the room's game rejects actions of another game as illegal).
+    case 'attack':
+      return isCard(v.card) ? { type: 'attack', card: { rank: v.card.rank, suit: v.card.suit } } : null;
+    case 'defend':
+      return isCard(v.card) && Number.isSafeInteger(v.attackIndex) && (v.attackIndex as number) >= 0 && (v.attackIndex as number) < 6
+        ? { type: 'defend', attackIndex: v.attackIndex as number, card: { rank: v.card.rank, suit: v.card.suit } }
+        : null;
+    case 'take':
+    case 'pass':
+      return { type: v.type };
+    // Texas Hold'em.
     case 'fold':
     case 'check':
     case 'call':
@@ -148,7 +168,8 @@ export function parseClientMessage(raw: string): ClientMessage | null {
   switch (data.t) {
     case 'create': {
       const name = cleanName(data.name);
-      return name ? { t: 'create', name } : null;
+      const game = data.game === undefined ? 'holdem' : (TABLE_GAMES as readonly unknown[]).includes(data.game) ? (data.game as TableGameId) : null;
+      return name && game ? { t: 'create', name, game } : null;
     }
     case 'join': {
       const name = cleanName(data.name);

@@ -37,7 +37,7 @@ function refused(fn: () => void): string | null {
 /** Every hole card a recipient was told about before showdown must be their own. */
 function assertPrivate(msgs: readonly ServerMessage[], viewerId: string): void {
   for (const m of msgs) {
-    if (m.t !== 'state') continue;
+    if (m.t !== 'state' || m.game !== 'holdem') continue;
     expect(JSON.stringify(m)).not.toContain('"deck"');
     for (const p of m.view.players) {
       if (p.id === viewerId || !p.holeCards) continue;

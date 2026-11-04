@@ -1,17 +1,9 @@
-import { processBotTurn } from '../src/bots';
 import { BOT_PROFILES } from '../src/bots/profiles';
-import { DEFAULT_CONFIG } from '../src/game/config';
 import type { Rng } from '../src/game/deck';
-import { advance, applyPlayerAction, getLegalActions, startNextHand, startTournament } from '../src/game/engine';
-import {
-  IllegalActionError,
-  type BotProfileId,
-  type GameState,
-  type PlayerAction,
-  type PlayerKind,
-  type TournamentConfig,
-} from '../src/game/types';
-import { getPlayerView } from '../src/game/views';
+import type { BotProfileId, GameState, PlayerAction, PlayerKind } from '../src/game/types';
+import type { TableView } from '../src/game/views';
+import { createPokerGame } from '../src/hub/pokerGame';
+import type { TableGame } from '../src/hub/tableGame';
 import {
   MAX_SEATS,
   MIN_PLAYERS,
@@ -20,14 +12,17 @@ import {
   type ErrorCode,
   type LobbyView,
   type ServerMessage,
+  type TableGameId,
   type TableMeta,
 } from '../src/net/protocol';
 
 /**
- * One private table. The room owns the authoritative GameState: it shuffles,
- * validates every action through the engine and sends each player only their
+ * One private table. The room owns the authoritative game state: it shuffles,
+ * validates every action through the game and sends each player only their
  * own view. It is transport-agnostic — clocks, timers, randomness and message
- * delivery are injected, which keeps it deterministic under test.
+ * delivery are injected, which keeps it deterministic under test — and
+ * game-agnostic: the game comes in through the hub's TableGame contract
+ * (Texas Hold'em by default).
  */
 
 export interface RoomTimings {
@@ -97,11 +92,14 @@ export type RoomPhase = 'lobby' | 'playing' | 'finished';
 
 const BOT_ORDER: BotProfileId[] = ['orion', 'vex', 'nova'];
 
-export class Room {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- a room hosts any TableGame
+type AnyGame = TableGame<any, any, any>;
+
+export class Room<S = GameState, A = PlayerAction, V = TableView> {
   phase: RoomPhase = 'lobby';
   readonly members: Member[] = [];
   hostId = '';
-  state: GameState | null = null;
+  state: S | null = null;
   /** Last time a human did anything or was connected; used for cleanup. */
   lastActivity: number;
 
@@ -113,13 +111,25 @@ export class Room {
   /** Set when the table could not recover from a failing step; it is then closed. */
   private broken = false;
 
+  private readonly game: TableGame<S, A, V>;
+
   constructor(
     readonly code: string,
     private readonly deps: RoomDeps,
     private readonly timings: RoomTimings = DEFAULT_TIMINGS,
-    private readonly config: TournamentConfig = DEFAULT_CONFIG,
+    game?: TableGame<S, A, V>,
   ) {
+    this.game = game ?? (createPokerGame() as AnyGame as TableGame<S, A, V>);
     this.lastActivity = deps.now();
+  }
+
+  get gameId(): TableGameId {
+    return this.game.id as TableGameId;
+  }
+
+  /** Seats this table's game allows. */
+  get maxSeats(): number {
+    return Math.min(MAX_SEATS, this.game.maxPlayers);
   }
 
   // -------------------------------------------------------------------------
@@ -128,7 +138,7 @@ export class Room {
 
   addHuman(name: string): Member {
     this.requirePhase('lobby', 'already-started', 'This game has already started');
-    if (this.members.length >= MAX_SEATS) throw new RoomError('room-full', 'This table is full');
+    if (this.members.length >= this.maxSeats) throw new RoomError('room-full', 'This table is full');
     const member: Member = {
       id: `p-${this.deps.randomHex(4)}`,
       name: this.uniqueName(name),
@@ -150,7 +160,7 @@ export class Room {
   addBot(byId: string): Member {
     this.requireHost(byId);
     this.requirePhase('lobby', 'already-started', 'Bots can only join before the game starts');
-    if (this.members.length >= MAX_SEATS) throw new RoomError('room-full', 'This table is full');
+    if (this.members.length >= this.maxSeats) throw new RoomError('room-full', 'This table is full');
     const botCount = this.members.filter((m) => m.kind === 'bot').length;
     const profile = BOT_ORDER[botCount % BOT_ORDER.length] as BotProfileId;
     const member: Member = {
@@ -210,8 +220,8 @@ export class Room {
       return;
     }
     // Coming back on your own turn restores the full turn clock.
-    const pending = this.state?.hand?.pending;
-    if (this.phase === 'playing' && pending?.kind === 'action' && pending.playerId === playerId) {
+    const actor = this.state ? this.game.actor(this.state) : null;
+    if (this.phase === 'playing' && actor === playerId) {
       this.schedule();
     } else {
       this.broadcastState();
@@ -267,30 +277,24 @@ export class Room {
   start(byId: string): void {
     this.requireHost(byId);
     this.requirePhase('lobby', 'already-started', 'The game has already started');
-    if (this.members.length < MIN_PLAYERS) throw new RoomError('bad-request', 'Seat at least one more player or bot first');
-    const seats = this.members.map((m) => ({
-      id: m.id,
-      name: m.name,
-      kind: m.kind,
-      ...(m.botProfile ? { botProfile: m.botProfile } : {}),
-    }));
-    const tournament = startTournament(this.config, seats, { rng: this.deps.rng });
-    this.state = startNextHand(tournament, { rng: this.deps.rng });
+    if (this.members.length < Math.max(MIN_PLAYERS, this.game.minPlayers)) throw new RoomError('bad-request', 'Seat at least one more player or bot first');
+    const seats = this.members.map((m) => ({ id: m.id, name: m.name, kind: m.kind, ...(m.botProfile ? { profile: m.botProfile } : {}) }));
+    this.state = this.game.create(seats, this.deps.rng);
     this.phase = 'playing';
     this.touch();
     this.schedule();
   }
 
-  act(playerId: string, action: PlayerAction, seq: number): void {
+  act(playerId: string, action: A, seq: number): void {
     this.requirePhase('playing', 'bad-request', 'No hand in progress');
-    const state = this.state as GameState;
+    const state = this.state as S;
     const member = this.member(playerId);
     if (!member || member.left) throw new RoomError('not-in-room', 'You are not seated here');
-    if (seq !== state.seq) throw new RoomError('stale', 'The table moved on before your action arrived');
+    if (seq !== this.game.seq(state)) throw new RoomError('stale', 'The table moved on before your action arrived');
     try {
-      this.state = applyPlayerAction(state, playerId, action, seq);
+      this.state = this.game.act(state, playerId, action, seq);
     } catch (error) {
-      if (error instanceof IllegalActionError) throw new RoomError('illegal-action', error.message);
+      if (this.game.isRuleError(error)) throw new RoomError('illegal-action', (error as Error).message);
       throw error;
     }
     member.missedTurns = 0;
@@ -327,9 +331,10 @@ export class Room {
     this.turnDeadline = null;
     this.nextHandAt = null;
     const state = this.state;
-    if (!state?.hand) return;
+    if (!state) return;
+    const game = this.game;
 
-    if (state.status === 'finished') {
+    if (game.isOver(state)) {
       this.phase = 'finished';
       this.broadcastState();
       return;
@@ -337,49 +342,40 @@ export class Room {
 
     const now = this.deps.now();
     const t = this.timings;
-    const pending = state.hand.pending;
-    switch (pending.kind) {
-      case 'action': {
-        const actor = this.member(pending.playerId);
-        if (actor?.kind === 'bot') {
-          const [min, max] = t.botThink;
-          this.later(min + this.deps.rng.next() * (max - min), (s) => processBotTurn(s, this.deps.rng));
-        } else if (actor) {
-          const ms = actor.left ? t.leftTurn : actor.away || !actor.connected ? t.awayTurn : t.turn;
-          this.turnDeadline = now + ms;
-          this.later(ms, (s) => this.autoAct(s, actor));
-        }
-        break;
+    const actorId = game.actor(state);
+    if (actorId) {
+      const actor = this.member(actorId);
+      if (actor?.kind === 'bot') {
+        const [min, max] = t.botThink;
+        this.later(min + this.deps.rng.next() * (max - min), (s) => game.act(s, actorId, game.botAction(s, actorId, this.deps.rng), game.seq(s)));
+      } else if (actor) {
+        const ms = actor.left ? t.leftTurn : actor.away || !actor.connected ? t.awayTurn : t.turn;
+        this.turnDeadline = now + ms;
+        this.later(ms, (s) => this.autoAct(s, actor));
       }
-      case 'deal': {
-        const canBet = state.players.filter((p) => p.status === 'active').length >= 2;
-        this.later(canBet ? t.street : t.runout, advance);
-        break;
+    } else {
+      const step = game.auto(state, this.deps.rng);
+      if (step) {
+        const ms = { quick: t.street, deal: t.street, runout: t.runout, reveal: t.showdown, round: t.nextHand }[step.pace];
+        if (step.pace === 'round') this.nextHandAt = now + ms;
+        this.later(ms, step.run);
       }
-      case 'showdown':
-        this.later(t.showdown, advance);
-        break;
-      case 'complete':
-        this.nextHandAt = now + t.nextHand;
-        this.later(t.nextHand, (s) => startNextHand(s, { rng: this.deps.rng }));
-        break;
     }
     this.broadcastState();
   }
 
-  private autoAct(state: GameState, member: Member): GameState {
-    const legal = getLegalActions(state, member.id);
-    if (!legal) return state;
+  private autoAct(state: S, member: Member): S {
+    if (this.game.actor(state) !== member.id) return state;
     member.missedTurns += 1;
     if (member.missedTurns >= AWAY_AFTER_TIMEOUTS) member.away = true;
-    return applyPlayerAction(state, member.id, legal.canCheck ? { type: 'check' } : { type: 'fold' }, state.seq);
+    return this.game.act(state, member.id, this.game.timeoutAction(state, member.id), this.game.seq(state));
   }
 
-  private later(ms: number, step: (s: GameState) => GameState): void {
-    const seq = this.state?.seq;
+  private later(ms: number, step: (s: S) => S): void {
+    const seq = this.state ? this.game.seq(this.state) : null;
     this.timer = this.deps.setTimer(() => {
       this.timer = null;
-      if (!this.state || this.state.seq !== seq || this.broken) return;
+      if (!this.state || this.game.seq(this.state) !== seq || this.broken) return;
       try {
         this.state = step(this.state);
         this.stepFailures = 0;
@@ -403,15 +399,12 @@ export class Room {
     this.stepFailures += 1;
     const state = this.state;
     if (state && this.stepFailures <= MAX_STEP_FAILURES) {
-      const pending = state.hand?.pending;
-      if (pending?.kind === 'action') {
+      const actorId = this.game.actor(state);
+      if (actorId) {
         try {
-          const legal = getLegalActions(state, pending.playerId);
-          if (legal) {
-            this.state = applyPlayerAction(state, pending.playerId, legal.canCheck ? { type: 'check' } : { type: 'fold' }, state.seq);
-            this.schedule();
-            return;
-          }
+          this.state = this.game.act(state, actorId, this.game.timeoutAction(state, actorId), this.game.seq(state));
+          this.schedule();
+          return;
         } catch (error) {
           console.error(`[room ${this.code}] safe fallback action failed`, error);
         }
@@ -450,6 +443,7 @@ export class Room {
   lobbyView(forId: string): LobbyView {
     return {
       code: this.code,
+      game: this.gameId,
       hostId: this.hostId,
       you: forId,
       seats: this.members.map((m) => ({
@@ -459,7 +453,7 @@ export class Room {
         botProfile: m.botProfile,
         connected: m.connected,
       })),
-      maxSeats: MAX_SEATS,
+      maxSeats: this.maxSeats,
       canStart: this.members.length >= MIN_PLAYERS,
     };
   }
@@ -480,7 +474,7 @@ export class Room {
     if (this.phase === 'lobby' || !this.state) {
       this.deps.send(playerId, { t: 'lobby', lobby: this.lobbyView(playerId) });
     } else {
-      this.deps.send(playerId, { t: 'state', view: getPlayerView(this.state, playerId), table: this.tableMeta() });
+      this.deps.send(playerId, this.stateMessage(this.state, playerId, this.tableMeta()));
     }
   }
 
@@ -490,13 +484,17 @@ export class Room {
     }
   }
 
+  private stateMessage(state: S, viewerId: string, table: TableMeta): ServerMessage {
+    return { t: 'state', game: this.gameId, view: this.game.view(state, viewerId), table } as ServerMessage;
+  }
+
   private broadcastState(): void {
     const state = this.state;
     if (!state) return;
     const table = this.tableMeta();
     for (const m of this.members) {
       // Each player gets their own projection: only their cards, never the deck.
-      if (m.kind === 'human' && m.connected) this.deps.send(m.id, { t: 'state', view: getPlayerView(state, m.id), table });
+      if (m.kind === 'human' && m.connected) this.deps.send(m.id, this.stateMessage(state, m.id, table));
     }
   }
 

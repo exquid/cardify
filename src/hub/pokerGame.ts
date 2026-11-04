@@ -2,7 +2,8 @@ import { chooseBotAction } from '../bots';
 import { DEFAULT_CONFIG } from '../game/config';
 import type { Rng } from '../game/deck';
 import { advance, applyPlayerAction, getLegalActions, startNextHand, startTournament } from '../game/engine';
-import type { BotProfileId, GameState, PlayerAction, TournamentConfig } from '../game/types';
+import { IllegalActionError, type BotProfileId, type GameState, type PlayerAction, type TournamentConfig } from '../game/types';
+import type { DecisionOptions } from '../bots/strategy';
 import { getPlayerView, type TableView } from '../game/views';
 import type { HubSeat, TableGame } from './tableGame';
 
@@ -19,7 +20,10 @@ function timeoutAction(s: GameState, playerId: string): PlayerAction {
   return legal?.canCheck ? { type: 'check' } : { type: 'fold' };
 }
 
-export function createPokerGame(config: TournamentConfig = DEFAULT_CONFIG): TableGame<GameState, PlayerAction, TableView> {
+const isProfile = (p: string | undefined): p is BotProfileId => p === 'nova' || p === 'vex' || p === 'orion';
+
+/** `botOptions` lets tests trade bot strength for speed; production keeps the bots' defaults. */
+export function createPokerGame(config: TournamentConfig = DEFAULT_CONFIG, botOptions: DecisionOptions = {}): TableGame<GameState, PlayerAction, TableView> {
   return {
     id: 'holdem',
     minPlayers: 2,
@@ -28,7 +32,12 @@ export function createPokerGame(config: TournamentConfig = DEFAULT_CONFIG): Tabl
       let bot = 0;
       const tournament = startTournament(
         config,
-        seats.map((s) => ({ id: s.id, name: s.name, kind: s.kind, ...(s.kind === 'bot' ? { botProfile: PROFILES[bot++ % PROFILES.length] } : {}) })),
+        seats.map((s) => ({
+          id: s.id,
+          name: s.name,
+          kind: s.kind,
+          ...(s.kind === 'bot' ? { botProfile: isProfile(s.profile) ? s.profile : (PROFILES[bot++ % PROFILES.length] as BotProfileId) } : {}),
+        })),
         { rng },
       );
       return startNextHand(tournament, { rng });
@@ -37,7 +46,7 @@ export function createPokerGame(config: TournamentConfig = DEFAULT_CONFIG): Tabl
     act: (s, playerId, action, expectedSeq) => applyPlayerAction(s, playerId, action, expectedSeq),
     auto(s, rng) {
       const kind = s.hand?.pending.kind;
-      if (kind === 'deal') return { pace: 'deal', run: advance };
+      if (kind === 'deal') return { pace: s.players.filter((p) => p.status === 'active').length >= 2 ? 'deal' : 'runout', run: advance };
       if (kind === 'showdown') return { pace: 'reveal', run: advance };
       if (kind === 'complete' && s.status === 'running') return { pace: 'round', run: (x) => startNextHand(x, { rng }) };
       return null;
@@ -46,10 +55,11 @@ export function createPokerGame(config: TournamentConfig = DEFAULT_CONFIG): Tabl
     timeoutAction,
     botAction(s, playerId, rng) {
       const player = s.players.find((p) => p.id === playerId);
-      const action = player?.kind === 'bot' ? chooseBotAction(s, rng, { equityIterations: 60 }) : null;
+      const action = player?.kind === 'bot' ? chooseBotAction(s, rng, botOptions) : null;
       return action ?? timeoutAction(s, playerId);
     },
     seq: (s) => s.seq,
     isOver: (s) => s.status === 'finished',
+    isRuleError: (e) => e instanceof IllegalActionError,
   };
 }

@@ -135,7 +135,7 @@ export class App implements Shell {
     softFocus(this.root.querySelector<HTMLElement>('.btn--primary'));
   }
 
-  setActive(screen: TableScreen | null): void {
+  setActive(screen: { handleKey(e: KeyboardEvent): void; refreshTools(): void } | null): void {
     this.active = screen;
   }
 

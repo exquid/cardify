@@ -62,3 +62,10 @@ The private-table multiplayer from v0.2 already covered most of the Stage 2 gate
 | S2-L4 | The duplicate `state` on resume (`connect()` broadcasts and `sendSnapshot()` sends again) is harmless but wasteful. | Cosmetic. |
 | S2-L5 | No load testing (many rooms, slow clients). | Belongs to Stage 6 (release). |
 | S2-L6 | Two-human browser runs used one machine and Chromium only. | A real two-phone test is recommended. |
+
+## 7. Addendum — the room hosts any hub game (later in the night)
+
+- `server/room.ts` is now `Room<S, A, V>` over the hub's `TableGame` contract. It defaults to Texas Hold'em (`createPokerGame()` with the bots' full strength), and lobby bot profiles are passed through, so behaviour is unchanged.
+- **Regression evidence for poker:** every pre-existing server test passed without changes to their assertions (only type narrowing for the new `game` field), plus `stage2-online.mts` 8/8 and `regress-bug-s1-01.mts` 10/10 on the new server.
+- Protocol: `create` takes an optional `game` (`holdem` by default, so older clients keep working); `lobby` and `state` carry the game; `act` accepts Durak actions with strict shape checks (the room's game refuses actions of another game).
+- Online Durak: `server/__tests__/room-durak.test.ts` (4 tests: 4-seat cap, a whole game with two humans and a bot, safe timeout move, private reconnect snapshot) and the browser scenario `durak-online.mts` 8/8.

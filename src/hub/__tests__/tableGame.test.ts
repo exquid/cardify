@@ -23,7 +23,7 @@ function playToEnd<S, A, V>(game: TableGame<S, A, V>, n: number, seed: number): 
 
 describe('hub contract', () => {
   it("Texas Hold'em plays whole tournaments through the generic driver", () => {
-    const poker = createPokerGame({ startingStack: 300, handsPerLevel: 2, blindLevels: [{ smallBlind: 10, bigBlind: 20 }], blindGrowthAfterTable: 2 });
+    const poker = createPokerGame({ startingStack: 300, handsPerLevel: 2, blindLevels: [{ smallBlind: 10, bigBlind: 20 }], blindGrowthAfterTable: 2 }, { equityIterations: 60 });
     for (const n of [2, 4, 6]) expect(poker.isOver(playToEnd(poker, n, n))).toBe(true);
   });
 

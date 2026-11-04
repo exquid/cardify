@@ -3,7 +3,15 @@ import { cleanName, normalizeCode, parseClientMessage } from '../protocol';
 
 describe('protocol validation', () => {
   it('accepts well-formed messages', () => {
-    expect(parseClientMessage('{"t":"create","name":"  Tim  "}')).toEqual({ t: 'create', name: 'Tim' });
+    // Older clients send no game: the table is Texas Hold'em.
+    expect(parseClientMessage('{"t":"create","name":"  Tim  "}')).toEqual({ t: 'create', name: 'Tim', game: 'holdem' });
+    expect(parseClientMessage('{"t":"create","name":"Tim","game":"durak"}')).toEqual({ t: 'create', name: 'Tim', game: 'durak' });
+    expect(parseClientMessage('{"t":"act","action":{"type":"defend","attackIndex":1,"card":{"rank":9,"suit":"h","x":1}},"seq":3}')).toEqual({
+      t: 'act',
+      action: { type: 'defend', attackIndex: 1, card: { rank: 9, suit: 'h' } },
+      seq: 3,
+    });
+    expect(parseClientMessage('{"t":"act","action":{"type":"take"},"seq":2}')).toEqual({ t: 'act', action: { type: 'take' }, seq: 2 });
     expect(parseClientMessage('{"t":"join","code":"k7qpm","name":"Ann"}')).toEqual({ t: 'join', code: 'K7QPM', name: 'Ann' });
     expect(parseClientMessage('{"t":"act","action":{"type":"raise","amount":120},"seq":4}')).toEqual({
       t: 'act',
@@ -31,6 +39,10 @@ describe('protocol validation', () => {
       '{"t":"act","action":{"type":"bet"},"seq":1}',
       '{"t":"act","action":{"type":"call"},"seq":"1"}',
       '{"t":"remove-seat","playerId":"<script>"}',
+      '{"t":"create","name":"Tim","game":"blackjack"}',
+      '{"t":"act","action":{"type":"attack","card":{"rank":1,"suit":"h"}},"seq":1}',
+      '{"t":"act","action":{"type":"defend","attackIndex":9,"card":{"rank":9,"suit":"h"}},"seq":1}',
+      '{"t":"act","action":{"type":"defend","card":{"rank":9,"suit":"z"}},"seq":1}',
     ]) {
       expect(parseClientMessage(raw)).toBeNull();
     }

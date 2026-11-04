@@ -144,7 +144,7 @@ describe('table', () => {
       expect(msg?.t).toBe('state');
       const json = JSON.stringify(msg);
       expect(json).not.toContain('"deck"');
-      if (msg?.t !== 'state') continue;
+      if (msg?.t !== 'state' || msg.game !== 'holdem') continue;
       for (const p of msg.view.players) {
         if (p.id === viewer.id) expect(p.holeCards).toHaveLength(2);
         else expect(p.holeCards).toBeNull();
@@ -251,7 +251,7 @@ describe('table', () => {
     }
     for (const [viewerId, messages] of inbox) {
       for (const msg of messages) {
-        if (msg.t !== 'state') continue;
+        if (msg.t !== 'state' || msg.game !== 'holdem') continue;
         const shown = new Set(msg.view.result?.shown.map((s) => s.playerId) ?? []);
         for (const p of msg.view.players) {
           if (p.holeCards && p.id !== viewerId) expect(shown.has(p.id)).toBe(true);

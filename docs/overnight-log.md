@@ -57,3 +57,9 @@ Rules: [`durak-rules.md`](durak-rules.md). All rule choices are marked **[decisi
 - [`release-checklist.md`](release-checklist.md): 14 items with evidence and owner. Done: static checks, rules, multiplayer, Durak, cross-game regression, dependency review, secrets. Waiting for you: real devices, environment check after the merge, staged rollout.
 - `npm audit --omit=dev`: 0 vulnerabilities in shipped code. Dev-only: 7 moderate in `minimatch` (inside `typescript-eslint`); **not fixed** because the fix is a breaking `--force` upgrade — your call.
 - README updated: open games, test count, links to all the new docs.
+
+## Bonus — online Durak ✅ (second half of the night)
+- The server room now hosts any hub game; **Durak can be played online** on private tables for 2–4 seats. Pick "Durak" when creating a table; friends join by code or link as before.
+- Poker online is unchanged: all old server tests pass, plus the poker browser regressions (8/8, 10/10).
+- New: 4 server tests for Durak rooms, 3 protocol checks, browser `durak-online.mts` 8/8 (two browsers, a whole game, both reconnect, no leaks).
+- **Rough edges:** Durak online stats are not counted in the profile. The turn clock appears only in the status line (no ring on the seat as in poker). Seat plates show no "offline" badge in Durak yet.

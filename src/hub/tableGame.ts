@@ -18,12 +18,14 @@ export interface HubSeat {
   id: string;
   name: string;
   kind: 'human' | 'bot';
+  /** Bot personality, when the game supports several (poker: nova, vex, orion). */
+  profile?: string;
 }
 
 /** Automatic work a game wants done next (dealing, showdown, next round…). */
 export interface AutoStep<State> {
   /** Pacing hint for drivers: how long a human would expect to wait. */
-  pace: 'quick' | 'deal' | 'reveal' | 'round';
+  pace: 'quick' | 'deal' | 'runout' | 'reveal' | 'round';
   run(state: State): State;
 }
 
@@ -61,6 +63,9 @@ export interface TableGame<State, Action, View> {
   seq(state: State): number;
 
   isOver(state: State): boolean;
+
+  /** True for the game's "illegal move" error (as opposed to a bug). */
+  isRuleError(error: unknown): boolean;
 }
 
 /**

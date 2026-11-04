@@ -62,6 +62,8 @@ export class DurakScreen {
   private seenEvents = 0;
   private locked = false;
   private target: number | null = null;
+  /** Seconds left on the acting human's clock (online), or null. */
+  private clock: number | null = null;
 
   constructor(
     private readonly heroId: string,
@@ -158,6 +160,13 @@ export class DurakScreen {
   release(): void {
     this.locked = false;
     if (this.view) this.render(this.view);
+  }
+
+  /** Updates only the status line (online turn clock), so taps on the hand are never lost to a re-render. */
+  setClock(seconds: number | null): void {
+    this.clock = seconds;
+    const view = this.view;
+    if (view) setText(this.statusEl, this.status(view, (id) => (id === this.heroId ? 'You' : view.players.find((p) => p.id === id)?.name ?? id)));
   }
 
   notify(line: string): void {
@@ -312,10 +321,15 @@ export class DurakScreen {
     if (p.kind === 'over') return 'Game over';
     if (p.kind === 'resolve') return view.taking ? `${nameOf(view.players.find((x) => x.role === 'defender')?.id ?? '')} picks up` : 'Beaten — to the discard pile';
     const mine = 'playerId' in p && p.playerId === this.heroId;
-    if (!mine) return `${nameOf((p as { playerId: string }).playerId)} is thinking…`;
-    if (p.kind === 'attack') return 'Your attack: play any card';
-    if (p.kind === 'throw') return view.taking ? 'They are taking — add matching cards or tap Done' : 'Throw in a matching card, or tap Done';
-    return this.target !== null ? 'Beat the marked card' : 'Beat the attack, or Take';
+    const clock = this.clock !== null ? ` · ${this.clock}s` : '';
+    if (!mine) {
+      const id = (p as { playerId: string }).playerId;
+      const human = view.players.find((x) => x.id === id)?.kind === 'human';
+      return human && this.clock !== null ? `${nameOf(id)} to act${clock}` : `${nameOf(id)} is thinking…`;
+    }
+    if (p.kind === 'attack') return `Your attack: play any card${clock}`;
+    if (p.kind === 'throw') return `${view.taking ? 'They are taking — add matching cards or tap Done' : 'Throw in a matching card, or tap Done'}${clock}`;
+    return `${this.target !== null ? 'Beat the marked card' : 'Beat the attack, or Take'}${clock}`;
   }
 
   private send(action: DurakAction): void {

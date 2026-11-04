@@ -2,7 +2,7 @@ import type { Card } from '../game/cards';
 import type { TableGame } from '../hub/tableGame';
 import { chooseDurakAction } from './bots';
 import { applyDurakAction, createDurak, getDurakLegal, resolveBout } from './engine';
-import type { DurakAction, DurakState } from './types';
+import { DurakRuleError, type DurakAction, type DurakState } from './types';
 import { getDurakView, type DurakView } from './views';
 
 /** Durak behind the hub contract — the second game, with no poker concepts in sight. */
@@ -23,14 +23,16 @@ function timeoutAction(state: DurakState, playerId: string): DurakAction {
 export const durakGame: TableGame<DurakState, DurakAction, DurakView> = {
   id: 'durak',
   minPlayers: 2,
-  maxPlayers: 6,
+  // The engine plays 2–6; tables are laid out for up to four seats.
+  maxPlayers: 4,
   create: (seats, rng) => createDurak(seats, { rng }),
   actor: (s) => ('playerId' in s.pending ? s.pending.playerId : null),
   act: (s, playerId, action, expectedSeq) => applyDurakAction(s, playerId, action, expectedSeq),
-  auto: (s) => (s.pending.kind === 'resolve' ? { pace: 'round', run: resolveBout } : null),
+  auto: (s) => (s.pending.kind === 'resolve' ? { pace: 'reveal', run: resolveBout } : null),
   view: (s, viewerId) => getDurakView(s, viewerId),
   timeoutAction,
   botAction: (s, playerId, rng) => chooseDurakAction(getDurakView(s, playerId), rng),
   seq: (s) => s.seq,
   isOver: (s) => s.pending.kind === 'over',
+  isRuleError: (e) => e instanceof DurakRuleError,
 };

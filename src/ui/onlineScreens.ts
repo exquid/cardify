@@ -1,4 +1,4 @@
-import { NAME_MAX_LENGTH, ROOM_CODE_LENGTH, type LobbyView } from '../net/protocol';
+import { NAME_MAX_LENGTH, ROOM_CODE_LENGTH, type LobbyView, type TableGameId } from '../net/protocol';
 import { brand, loadingLine, notice } from './components';
 import { h, ICONS, svg } from './dom';
 
@@ -18,7 +18,7 @@ export interface EntryOptions {
   unavailable: string | null;
   busy: string | null;
   error: string | null;
-  onCreate(name: string): void;
+  onCreate(name: string, game: TableGameId): void;
   onJoin(code: string, name: string): void;
   onRejoin(): void;
   onBack(): void;
@@ -73,6 +73,25 @@ export function entryScreen(o: EntryOptions): HTMLElement {
     return name;
   };
 
+  // Which game the new table plays (joining needs no choice: the table decides).
+  let game: TableGameId = 'holdem';
+  const picker = h('div', { class: 'segmented', attrs: { role: 'radiogroup', 'aria-label': 'Game for a new table' } });
+  const options = ([['holdem', "Texas Hold'em"], ['durak', 'Durak']] as const).map(([value, label]) => {
+    const b = h('button', {
+      class: 'segmented__opt',
+      text: label,
+      attrs: { type: 'button', role: 'radio', 'aria-checked': String(value === game) },
+      on: {
+        click: () => {
+          game = value;
+          options.forEach((x) => x.setAttribute('aria-checked', String(x === b)));
+        },
+      },
+    });
+    return b;
+  });
+  picker.append(...options);
+
   const create = h('button', {
     class: 'btn btn--primary btn--wide',
     text: 'Create a table',
@@ -80,7 +99,7 @@ export function entryScreen(o: EntryOptions): HTMLElement {
     on: {
       click: () => {
         const name = validName();
-        if (name) o.onCreate(name);
+        if (name) o.onCreate(name, game);
       },
     },
   });
@@ -121,7 +140,7 @@ export function entryScreen(o: EntryOptions): HTMLElement {
       'div',
       { class: 'panel online' },
       h('h1', { class: 'online__title', text: 'Play with friends' }),
-      h('p', { class: 'online__lead', text: 'Private tables for 2 to 6 players. The host can fill empty seats with Nova, Vex or Orion.' }),
+      h('p', { class: 'online__lead', text: "Private Hold'em tables for 2 to 6 players, or Durak for 2 to 4. The host can fill empty seats with Nova, Vex or Orion." }),
       o.unavailable ? notice(o.unavailable, 'error') : null,
       o.busy ? loadingLine(o.busy) : null,
       h(
@@ -138,6 +157,7 @@ export function entryScreen(o: EntryOptions): HTMLElement {
             on: { click: o.onRejoin },
           })
         : null,
+      h('div', { class: 'field' }, h('span', { class: 'field__label', text: 'Game' }), picker),
       create,
       h('div', { class: 'divider', attrs: { role: 'separator' } }, h('span', { text: 'or join a friend' })),
       joinForm,
@@ -238,7 +258,7 @@ export function lobbyScreen(o: LobbyOptions): HTMLElement {
     h(
       'div',
       { class: 'panel lobby' },
-      h('h1', { class: 'online__title', text: 'Your private table' }),
+      h('h1', { class: 'online__title', text: lobby.game === 'durak' ? 'Your Durak table' : 'Your private table' }),
       h('p', { class: 'online__lead', text: 'Friends open cardify, choose Play with friends and enter this code. Or send them the invite link.' }),
       copyCode,
       copyLink,

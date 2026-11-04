@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server } from 'node:http';
 import { WebSocketServer, type WebSocket } from 'ws';
+import { durakGame } from '../src/durak/game';
 import { createCryptoRng, type Rng } from '../src/game/deck';
 import {
   PROTOCOL_VERSION,
@@ -8,6 +9,7 @@ import {
   type ClientMessage,
   type ErrorCode,
   type ServerMessage,
+  type TableGameId,
 } from '../src/net/protocol';
 import { createOriginMatcher } from './origins';
 import { DEFAULT_TIMINGS, generateRoomCode, Room, RoomError, type RoomTimings } from './room';
@@ -32,9 +34,12 @@ export interface ServerOptions {
   log?: (message: string) => void;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- the registry holds rooms of every game
+export type AnyRoom = Room<any, any, any>;
+
 interface Connection {
   socket: WebSocket;
-  room: Room | null;
+  room: AnyRoom | null;
   playerId: string | null;
   alive: boolean;
   /** Token bucket for rate limiting. */
@@ -51,7 +56,7 @@ const MAX_PAYLOAD = 2048;
 export interface RunningServer {
   http: Server;
   port: number;
-  rooms: Map<string, Room>;
+  rooms: Map<string, AnyRoom>;
   close(): Promise<void>;
 }
 
@@ -65,7 +70,7 @@ export function startServer(options: ServerOptions): Promise<RunningServer> {
   const originAllowed = createOriginMatcher(options.allowedOrigins ?? []);
   const reportedOrigins = new Set<string>();
 
-  const rooms = new Map<string, Room>();
+  const rooms = new Map<string, AnyRoom>();
   const connections = new Map<WebSocket, Connection>();
   /** `${code}:${playerId}` → socket currently bound to that seat. */
   const seats = new Map<string, Connection>();
@@ -99,11 +104,11 @@ export function startServer(options: ServerOptions): Promise<RunningServer> {
   };
   const fail = (conn: Connection, code: ErrorCode, message: string): void => send(conn, { t: 'error', code, message });
 
-  const createRoom = (): Room => {
+  const createRoom = (game: TableGameId): AnyRoom => {
     if (rooms.size >= maxRooms) throw new RoomError('server-full', 'The server is busy, try again in a few minutes');
     let code = generateRoomCode(rng);
     while (rooms.has(code)) code = generateRoomCode(rng);
-    const room = new Room(code, {
+    const room: AnyRoom = new Room(code, {
       now: () => Date.now(),
       setTimer: (fn, ms) => setTimeout(fn, ms),
       clearTimer: (handle) => clearTimeout(handle as NodeJS.Timeout),
@@ -114,13 +119,13 @@ export function startServer(options: ServerOptions): Promise<RunningServer> {
         if (conn) send(conn, message);
         if (message.t === 'left' && conn) unbind(conn);
       },
-    }, timings);
+    }, timings, game === 'durak' ? durakGame : undefined);
     rooms.set(code, room);
-    log(`room ${code} created (${rooms.size} open)`);
+    log(`room ${code} created for ${game} (${rooms.size} open)`);
     return room;
   };
 
-  const bind = (conn: Connection, room: Room, playerId: string): void => {
+  const bind = (conn: Connection, room: AnyRoom, playerId: string): void => {
     const key = `${room.code}:${playerId}`;
     const previous = seats.get(key);
     if (previous && previous !== conn) {
@@ -143,7 +148,7 @@ export function startServer(options: ServerOptions): Promise<RunningServer> {
     conn.playerId = null;
   }
 
-  const welcome = (conn: Connection, room: Room, playerId: string, token: string): void => {
+  const welcome = (conn: Connection, room: AnyRoom, playerId: string, token: string): void => {
     send(conn, { t: 'welcome', v: PROTOCOL_VERSION, code: room.code, token, playerId });
   };
 
@@ -154,7 +159,7 @@ export function startServer(options: ServerOptions): Promise<RunningServer> {
         return;
       case 'create': {
         if (conn.room) leaveCurrent(conn);
-        const room = createRoom();
+        const room = createRoom(msg.game);
         const member = room.addHuman(msg.name);
         bind(conn, room, member.id);
         welcome(conn, room, member.id, member.token as string);
@@ -220,7 +225,7 @@ export function startServer(options: ServerOptions): Promise<RunningServer> {
     if (room.isAbandoned(Date.now(), idleRoomMs)) closeRoom(room);
   }
 
-  function closeRoom(room: Room): void {
+  function closeRoom(room: AnyRoom): void {
     room.dispose();
     rooms.delete(room.code);
     for (const [key, conn] of seats) {

@@ -83,6 +83,7 @@ describe('table server', () => {
     const annState = await ann.next('state');
     const bobState = await bob.next('state');
     expect(JSON.stringify(annState)).not.toContain('"deck"');
+    if (annState.game !== 'holdem') throw new Error('expected a poker table');
     const annMe = annState.view.players.find((p) => p.id === welcome.playerId)!;
     expect(annMe.holeCards).toHaveLength(2);
     expect(annState.view.players.find((p) => p.id === bobWelcome.playerId)!.holeCards).toBeNull();

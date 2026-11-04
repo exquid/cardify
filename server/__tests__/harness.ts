@@ -1,6 +1,9 @@
 import { createSeededRng, type Rng } from '../../src/game/deck';
 import { getLegalActions } from '../../src/game/engine';
 import type { ServerMessage } from '../../src/net/protocol';
+import type { GameState, PlayerAction } from '../../src/game/types';
+import type { TableView } from '../../src/game/views';
+import type { TableGame } from '../../src/hub/tableGame';
 import { Room, type RoomTimings } from '../room';
 
 /** Shared fakes for room tests: deterministic clock, timer queue, message inbox. */
@@ -33,11 +36,12 @@ export class FakeTimers {
   }
 }
 
-export function createRoom(rng: Rng = createSeededRng(1), timings: RoomTimings = FAST) {
+/** A room on fake timers; Texas Hold'em unless another hub game is passed. */
+export function createRoom<S = GameState, A = PlayerAction, V = TableView>(rng: Rng = createSeededRng(1), timings: RoomTimings = FAST, game?: TableGame<S, A, V>) {
   const timers = new FakeTimers();
   const inbox = new Map<string, ServerMessage[]>();
   let hex = 0;
-  const room = new Room(
+  const room = new Room<S, A, V>(
     'ABCDE',
     {
       now: () => timers.now,
@@ -48,9 +52,11 @@ export function createRoom(rng: Rng = createSeededRng(1), timings: RoomTimings =
       send: (id, msg) => inbox.set(id, [...(inbox.get(id) ?? []), msg]),
     },
     timings,
+    game,
   );
   const messages = (id: string): ServerMessage[] => inbox.get(id) ?? [];
-  const lastState = (id: string) => [...messages(id)].reverse().find((m): m is Extract<ServerMessage, { t: 'state' }> => m.t === 'state');
+  const lastState = (id: string) =>
+    [...messages(id)].reverse().find((m): m is Extract<ServerMessage, { t: 'state'; game: 'holdem' }> => m.t === 'state' && m.game === 'holdem');
   return { room, timers, inbox, messages, lastState };
 }
 
