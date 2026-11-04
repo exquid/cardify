@@ -18,6 +18,7 @@ import {
   type Settings,
 } from '../storage/session';
 import { softFocus } from './dom';
+import { DurakController } from './durak/durakController';
 import { applyMotion, prefersReducedMotion, PULSE, SoundBoard } from './effects';
 import { OnlineController, savedTableCode, type Shell } from './online';
 import { endScreen, historyBody, howToPlayBody, menuBody, openSheet, settingsBody, startScreen } from './screens';
@@ -43,10 +44,11 @@ export class App implements Shell {
 
   private state: GameState | null = null;
   private stats: SessionStats = emptyStats();
-  /** The screen receiving keyboard shortcuts (solo or online table). */
-  private active: TableScreen | null = null;
+  /** The screen receiving keyboard shortcuts (solo or online poker, or Durak). */
+  private active: { handleKey(e: KeyboardEvent): void; refreshTools(): void } | null = null;
   private solo: TableScreen | null = null;
   private online: OnlineController | null = null;
+  private durak: DurakController | null = null;
 
   private timer: number | undefined;
   private ticker: number | undefined;
@@ -92,6 +94,7 @@ export class App implements Shell {
   showStart(notice: string | null = null): void {
     this.stopTimers();
     this.leaveSolo();
+    this.leaveDurak();
     this.online?.dispose();
     this.online = null;
     const saved = loadSession();
@@ -118,6 +121,9 @@ export class App implements Shell {
           this.mountSolo();
         },
         onPlay: () => this.newTournament(),
+        onPlayGame: (id) => {
+          if (id === 'durak') this.openDurak();
+        },
         onFriends: (code) => this.openOnline(code ?? ''),
         onHowTo: () => this.openHowTo(),
         onSettings: () => this.openSettings(),
@@ -133,9 +139,11 @@ export class App implements Shell {
   sheet(title: string, body: HTMLElement): HTMLDialogElement {
     this.openSheets += 1;
     if (this.solo) this.stopTimers();
+    this.durak?.pause();
     return openSheet(title, body, () => {
       this.openSheets = Math.max(0, this.openSheets - 1);
       if (this.openSheets === 0 && this.solo) this.schedule();
+      if (this.openSheets === 0) this.durak?.resume();
     });
   }
 
@@ -167,6 +175,7 @@ export class App implements Shell {
   private openOnline(code = ''): void {
     this.stopTimers();
     this.leaveSolo();
+    this.leaveDurak();
     this.online?.dispose();
     this.online = new OnlineController(this, resolveServerUrl());
     this.online.open(code);
@@ -186,6 +195,7 @@ export class App implements Shell {
     const state = this.state;
     if (!state) return;
     this.stopTimers();
+    this.leaveDurak();
     this.online?.dispose();
     this.online = null;
     this.solo = new TableScreen(HUMAN_ID, getPlayerView(state, HUMAN_ID), this.env, {
@@ -206,6 +216,39 @@ export class App implements Shell {
   private leaveSolo(): void {
     this.solo = null;
     this.active = null;
+  }
+
+  // -------------------------------------------------------------------------
+  // Durak (solo)
+  // -------------------------------------------------------------------------
+
+  private openDurak(): void {
+    this.stopTimers();
+    this.leaveSolo();
+    this.online?.dispose();
+    this.online = null;
+    this.leaveDurak();
+    this.durak = new DurakController({
+      root: this.root,
+      sound: this.sound,
+      speed: () => this.settings.speed,
+      soundOn: () => this.settings.sound,
+      sheet: (title, body) => this.sheet(title, body),
+      openSettings: () => this.openSettings(),
+      openHistory: (lines) => this.openHistory(lines),
+      toggleSound: () => this.toggleSound(),
+      showStart: (notice) => this.showStart(notice ?? null),
+      setKeyTarget: (target) => {
+        this.active = target;
+      },
+      paused: () => this.openSheets > 0,
+    });
+    this.durak.open();
+  }
+
+  private leaveDurak(): void {
+    this.durak?.dispose();
+    this.durak = null;
   }
 
   private showSoloEnd(): void {

@@ -28,7 +28,7 @@ export const GAMES: readonly GameEntry[] = [
     name: 'Durak',
     blurb: 'The classic shedding game: beat every attack or pick up the cards.',
     players: '2–4 players',
-    status: 'soon',
+    status: 'open',
     modes: { solo: true, online: false },
   },
   {

@@ -3,7 +3,7 @@ import { CATEGORY_NAMES, HandCategory } from '../game/evaluator';
 import type { SessionStats, Settings } from '../storage/session';
 import { parseCard } from '../game/cards';
 import { cardElement } from './cards';
-import { brand, gameTile, GAMES, iconButton, notice } from './components';
+import { brand, gameTile, GAMES, iconButton, notice, type GameEntry } from './components';
 import { h, ICONS, svg } from './dom';
 import { chips, ordinal } from './format';
 
@@ -16,6 +16,8 @@ export interface StartScreenOptions {
   onRejoin(): void;
   onContinue(): void;
   onPlay(): void;
+  /** Starts another open game from the library (e.g. Durak). */
+  onPlayGame?: (id: GameEntry['id']) => void;
   /** Opens "Play with Friends", optionally with a table code already filled in. */
   onFriends(code?: string): void;
   onHowTo(): void;
@@ -126,7 +128,11 @@ export function startScreen(o: StartScreenOptions): HTMLElement {
 
   // Library ------------------------------------------------------------------
   const shelf = h('ul', { class: 'shelf__decks' });
-  for (const game of GAMES) shelf.append(gameTile(game, game.status === 'open' ? { label: 'Play poker', onClick: o.onPlay } : undefined));
+  for (const game of GAMES) {
+    const action =
+      game.status !== 'open' ? undefined : game.id === 'holdem' ? { label: 'Play poker', onClick: o.onPlay } : { label: `Play ${game.name}`, onClick: () => o.onPlayGame?.(game.id) };
+    shelf.append(gameTile(game, action));
+  }
   const library = h(
     'section',
     { class: 'section shelf', attrs: { id: 'games', tabindex: '-1', 'aria-labelledby': 'games-title' } },
@@ -134,7 +140,7 @@ export function startScreen(o: StartScreenOptions): HTMLElement {
       'div',
       { class: 'section__head' },
       h('h2', { class: 'section__title', text: 'The card room', attrs: { id: 'games-title' } }),
-      h('p', { class: 'section__lead', text: "Hold'em is open tonight. Two more tables are being built." }),
+      h('p', { class: 'section__lead', text: "Hold'em and Durak are open tonight. Blackjack is being built." }),
     ),
     shelf,
   );
@@ -453,6 +459,8 @@ export interface MenuOptions {
   /** Asks for a second tap before leaving (online: leaving mid-game folds your hands). */
   confirmLeave?: string;
   onRestart?: () => void;
+  /** Label of the restart item (default: "Restart tournament"). */
+  restartLabel?: string;
 }
 
 export function menuBody(o: MenuOptions): HTMLElement {
@@ -480,7 +488,7 @@ export function menuBody(o: MenuOptions): HTMLElement {
     item('Settings', o.onSettings),
     item('How to play', o.onHowTo),
     o.confirmLeave ? armed(o.leaveLabel, o.confirmLeave, o.onLeave, '') : item(o.leaveLabel, o.onLeave),
-    restart ? armed('Restart tournament', 'Tap again to abandon this game', restart) : null,
+    restart ? armed(o.restartLabel ?? 'Restart tournament', 'Tap again to abandon this game', restart) : null,
   );
 }
 

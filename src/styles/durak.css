@@ -1,0 +1,286 @@
+/* ================================================================== */
+/* Durak table — built on the Walnut Club shell (tokens.css, table.css) */
+/* Everything here is scoped to .screen--durak.                        */
+/* ================================================================== */
+
+.screen--durak .durak-table {
+  --cw-board: clamp(40px, min(11.5vw, 7.2vh), 70px);
+  --cw-opp: clamp(20px, min(5.6vw, 3.6vh), 30px);
+  --side-y: 46%;
+}
+
+.screen--durak .table__print {
+  top: 82%;
+}
+
+/* Talon (face-down stack with the trump card turned across it) and discard pile. */
+.durak-talon,
+.durak-discard {
+  position: absolute;
+  top: 50%;
+  translate: 0 -50%;
+  display: grid;
+  place-items: center;
+  width: calc(var(--cw-board) * 1.5);
+  height: calc(var(--cw-board) * 1.5);
+}
+
+.durak-talon {
+  left: 6%;
+}
+
+.durak-discard {
+  right: 6%;
+}
+
+.durak-talon > .card,
+.durak-discard > .card {
+  grid-area: 1 / 1;
+}
+
+/* Portrait: the side seats sit at mid-height, so the piles move to the free lower felt. */
+@media (orientation: portrait) {
+  .durak-talon,
+  .durak-discard {
+    top: 76%;
+  }
+
+  .durak-talon {
+    left: 16%;
+  }
+
+  .durak-discard {
+    right: 16%;
+  }
+
+  .screen--durak .table__print {
+    top: 92%;
+  }
+}
+
+.durak-talon__trump {
+  rotate: 90deg;
+  translate: 28% 0;
+}
+
+.durak-discard > .card {
+  rotate: -12deg;
+  opacity: 0.85;
+}
+
+.durak-discard.is-empty {
+  visibility: hidden;
+}
+
+.durak-talon__count {
+  grid-area: 1 / 1;
+  align-self: end;
+  translate: 0 70%;
+  padding: 1px 8px;
+  border-radius: var(--r-sm);
+  background: rgb(18 14 12 / 0.72);
+  color: var(--ink);
+  font-size: var(--fs-xs);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.durak-talon__count:empty {
+  display: none;
+}
+
+.durak-talon__empty {
+  grid-area: 1 / 1;
+  display: grid;
+  place-items: center;
+  width: var(--cw-board);
+  height: calc(var(--cw-board) * 1.4);
+  border-radius: calc(var(--cw-board) * 0.09);
+  border: 1px dashed var(--felt-print);
+  color: rgb(241 231 214 / 0.35);
+  font-size: calc(var(--cw-board) * 0.5);
+}
+
+/* The bout: attack cards with their defence laid across. */
+.durak-pairs {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  translate: -50% -50%;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: calc(var(--cw-board) * 0.55) calc(var(--cw-board) * 0.45);
+  width: min(62%, calc(var(--cw-board) * 6));
+}
+
+.durak-pair {
+  position: relative;
+  width: var(--cw-board);
+  height: calc(var(--cw-board) * 1.4);
+  border-radius: calc(var(--cw-board) * 0.09);
+}
+
+.durak-pair__defense {
+  position: absolute;
+  inset: 0;
+  translate: 22% 20%;
+  rotate: 9deg;
+}
+
+.durak-pair.is-open {
+  cursor: pointer;
+  outline: 2px dashed rgb(185 154 107 / 0.55);
+  outline-offset: 3px;
+}
+
+.durak-pair.is-target {
+  outline: 2px solid var(--brass);
+  box-shadow: 0 0 0 6px rgb(185 154 107 / 0.18);
+}
+
+.durak-pair.is-open:focus-visible {
+  outline: 2px solid var(--brass);
+}
+
+.durak-pairs.is-taking .durak-pair {
+  opacity: 0.82;
+}
+
+/* Opponents: a fan of card backs and the usual plate. */
+.durak-seat__cards {
+  min-height: calc(var(--cw-opp) * 1.4);
+}
+
+.durak-seat__cards .card {
+  --cw: var(--cw-opp);
+  rotate: none !important;
+  margin: 0 !important;
+}
+
+.durak-seat__cards .card + .card {
+  margin-left: calc(var(--cw-opp) * -0.55) !important;
+}
+
+.seat.is-out .seat__plate {
+  opacity: 0.55;
+}
+
+/* Dock: status, the hand, Take / Done. */
+.durak-dock {
+  grid-template-rows: 20px auto auto;
+}
+
+.durak-dock .dock__status {
+  grid-row: auto !important;
+}
+
+.durak-actions .btn {
+  min-height: 48px;
+}
+
+.durak-actions:not(:has(.btn:not(.is-hidden))) {
+  display: none;
+}
+
+.durak-hand {
+  --cw-hand: clamp(44px, min(13.5vw, 8.6vh), 76px);
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  max-width: 760px;
+  min-height: calc(var(--cw-hand) * 1.4 + 10px);
+  margin: 0 auto;
+  padding-top: 10px;
+}
+
+.durak-hand__card {
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  border-radius: calc(var(--cw-hand) * 0.09);
+  transition: translate var(--t-fast) var(--ease-out);
+}
+
+/* Overlap automatically once the hand is wider than the dock (percentages refer to the hand's width). */
+.durak-hand__card + .durak-hand__card {
+  margin-left: min(4px, calc((100% - var(--n) * var(--cw-hand)) / max(1, var(--n) - 1)));
+}
+
+.durak-hand__card .card {
+  --cw: var(--cw-hand);
+}
+
+.durak-hand__card .card.is-trump {
+  box-shadow:
+    var(--shadow-card),
+    inset 0 0 0 2px rgb(185 154 107 / 0.55);
+}
+
+.durak-dock[data-mode='turn'] .durak-hand__card.is-playable {
+  translate: 0 -8px;
+  cursor: pointer;
+}
+
+.durak-dock[data-mode='turn'] .durak-hand__card:not(.is-playable) .card {
+  filter: saturate(0.6) brightness(0.72);
+}
+
+.durak-hand__card:focus-visible {
+  outline: 2px solid var(--brass);
+  outline-offset: 2px;
+}
+
+.durak-suit {
+  font-weight: 650;
+}
+
+.durak-suit.is-red {
+  color: var(--card-red);
+}
+
+/* Result panel over the felt. */
+.durak-result {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  translate: -50% -50%;
+  z-index: 5;
+  width: min(88%, 380px);
+  padding: 20px 22px;
+  border-radius: var(--r-lg, 20px);
+  border: 1px solid rgb(185 154 107 / 0.45);
+  background: linear-gradient(180deg, var(--espresso-2), var(--espresso));
+  box-shadow: var(--shadow-1);
+  text-align: center;
+}
+
+.durak-result[hidden] {
+  display: none;
+}
+
+.durak-result__title {
+  margin: 0 0 6px;
+  font-family: var(--font-display);
+  font-variation-settings: var(--display-axes);
+  font-size: var(--fs-xl, 1.5rem);
+  font-weight: 560;
+  color: var(--parchment);
+}
+
+.durak-result.is-win .durak-result__title {
+  color: var(--success);
+}
+
+.durak-result__detail {
+  margin: 0 0 16px;
+  color: var(--ink-2);
+  font-size: var(--fs-sm);
+}
+
+.durak-result__actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}

@@ -29,9 +29,19 @@ Doc: [`architecture/hub.md`](architecture/hub.md) (written with the Durak UI).
 - Tests: poker (2/4/6 seats) and Durak (2/3/4/6 seats) both play to the end through the same driver; both views are private.
 - **Decision taken for you:** the existing poker solo driver (`ui/app.ts`) and the server room were **not** rewritten onto the contract tonight (too risky without review). The contract is proven by tests; migrating them is a follow-up.
 
-## Stage 4 — Durak 🟡 engine done, UI in progress
+## Stage 4 — Durak ✅ solo playable (online not yet)
 Rules: [`durak-rules.md`](durak-rules.md). All rule choices are marked **[decision]** there.
 
 - `src/durak/`: pure engine, private views, bots, hub adapter.
 - Tests: 16 rule fixtures, plus 500 seeded games (300 random, 200 bots; about 14,500 bouts and 187,000 refusals verified) with invariants after every command.
 - Mutation check: removing the attack limit or the "skip the taker" rule is caught. A third mutant (trump vs. trump) turned out to be equivalent to the original.
+
+- **Solo UI** (`src/ui/durak/`, `src/styles/durak.css`): seat picker (2/3/4 players), a felt with the talon and turned trump card, the bout as attack/defence pairs, opponents' card fans, your hand with the playable cards lifted, Take / Done, history, menu with rules, and a result panel with Play again / Main menu. Built only from Walnut Club tokens and shell classes.
+- Durak is **open** on the home page library ("Play Durak"); the poker hero and table are pixel-identical to the redesign commit.
+- Browser check `docs/qa/browser/durak-ui.mts`: 15/15 (whole games at 2, 3 and 4 players, double taps, no page errors).
+- **Rough edges:**
+  - No save/continue for Durak (a reload loses the game).
+  - No online Durak (the server room is poker-only; see `architecture/hub.md` → Next).
+  - Bots are simple heuristics (they don't track played cards).
+  - Defending needs a tap on the target card when several are open; on small phones, hands of 15+ cards overlap tightly.
+  - Durak has no sound of its own (it reuses the poker sounds); there are no deal/flip animations beyond the shared card styles.

@@ -3,6 +3,7 @@ import '@fontsource-variable/onest';
 import './styles/tokens.css';
 import './styles/main.css';
 import './styles/table.css';
+import './styles/durak.css';
 import { App } from './ui/app';
 
 const root = document.getElementById('app');
