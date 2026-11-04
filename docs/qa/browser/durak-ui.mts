@@ -81,6 +81,15 @@ for (const [players, label, profile] of [
   if (result) {
     await page.getByRole('button', { name: 'Main menu' }).click();
     checks.ok((await page.locator('.screen--home').count()) === 1, `${players}p: Main menu returns to the card room`);
+    // Stage 5: the finished game counts once in the local profile.
+    const nav = page.locator('.sitebar__nav').getByRole('button', { name: 'Profile' });
+    if (await nav.isVisible()) await nav.click();
+    else {
+      await page.getByRole('button', { name: 'Open menu' }).click();
+      await page.locator('.menu').getByRole('button', { name: 'Profile' }).click();
+    }
+    const games = await page.locator('.profile .stats').nth(1).locator('dd').first().innerText();
+    checks.ok(games === '1', `${players}p: the profile counts the game once (Durak games = ${games})`);
   }
   await ctx.close();
 }

@@ -17,7 +17,9 @@ import {
   type SessionStats,
   type Settings,
 } from '../storage/session';
+import { recordHoldemResult } from '../storage/profile';
 import { softFocus } from './dom';
+import { profileBody } from './profile';
 import { DurakController } from './durak/durakController';
 import { applyMotion, prefersReducedMotion, PULSE, SoundBoard } from './effects';
 import { OnlineController, savedTableCode, type Shell } from './online';
@@ -127,6 +129,7 @@ export class App implements Shell {
         onFriends: (code) => this.openOnline(code ?? ''),
         onHowTo: () => this.openHowTo(),
         onSettings: () => this.openSettings(),
+        onProfile: () => this.openProfile(),
       }),
     );
     softFocus(this.root.querySelector<HTMLElement>('.btn--primary'));
@@ -149,6 +152,10 @@ export class App implements Shell {
 
   openSettings(): void {
     this.sheet('Settings', settingsBody(this.settings, (next) => this.applySettings(next), prefersReducedMotion()));
+  }
+
+  openProfile(): void {
+    this.sheet('Profile', profileBody());
   }
 
   openHowTo(): void {
@@ -274,6 +281,7 @@ export class App implements Shell {
     const previous = this.state;
     this.state = next;
     this.trackStats(previous, next);
+    this.recordResult(previous, next);
     this.persist();
     this.renderSolo({ effects: true });
     this.schedule();
@@ -285,6 +293,14 @@ export class App implements Shell {
     const hero = state.players.find((p) => p.id === HUMAN_ID);
     if (state.status === 'finished' || hero?.status === 'out') clearSession();
     else saveSession({ state, stats: this.stats });
+  }
+
+  /** Lifetime stats: counted once, on the command that ends the tournament for the hero. */
+  private recordResult(previous: GameState | null, next: GameState): void {
+    const over = (s: GameState | null) => !!s && (s.status === 'finished' || s.players.find((p) => p.id === HUMAN_ID)?.status === 'out');
+    if (!previous || over(previous) || !over(next)) return;
+    const place = next.players.find((p) => p.id === HUMAN_ID)?.finishPlace ?? null;
+    if (place) recordHoldemResult(`holdem-${Date.now()}-${this.rng.nextInt(1_000_000)}`, place);
   }
 
   private trackStats(previous: GameState | null, next: GameState): void {

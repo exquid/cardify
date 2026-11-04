@@ -22,6 +22,7 @@ export interface StartScreenOptions {
   onFriends(code?: string): void;
   onHowTo(): void;
   onSettings(): void;
+  onProfile?: () => void;
 }
 
 const HERO_SPREAD = ['As', 'Kh', 'Qc', 'Jd', 'Ts'];
@@ -40,6 +41,7 @@ export function startScreen(o: StartScreenOptions): HTMLElement {
     ['Games', () => scrollTo('games')],
     ['Private tables', () => scrollTo('private')],
     ['How to play', o.onHowTo],
+    ...(o.onProfile ? ([['Profile', o.onProfile]] as Array<[string, () => void]>) : []),
     ['Settings', o.onSettings],
   ];
   const nav = h('nav', { class: 'sitebar__nav', attrs: { 'aria-label': 'Main' } });

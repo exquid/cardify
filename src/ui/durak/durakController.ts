@@ -1,5 +1,6 @@
 import { durakGame } from '../../durak/game';
 import { clearDurak, loadDurak, saveDurak } from '../../durak/persist';
+import { recordDurakResult } from '../../storage/profile';
 import { DurakRuleError, type DurakAction, type DurakState } from '../../durak/types';
 import { createCryptoRng } from '../../game/deck';
 import type { HubSeat } from '../../hub/tableGame';
@@ -133,8 +134,13 @@ export class DurakController {
   }
 
   private commit(next: DurakState): void {
+    const wasOver = this.state ? durakGame.isOver(this.state) : true;
     this.state = next;
     saveDurak(next);
+    if (!wasOver && durakGame.isOver(next) && next.outcome) {
+      const result = next.outcome.kind === 'draw' ? 'draw' : next.outcome.loserId === HERO ? 'durak' : 'safe';
+      recordDurakResult(`durak-${Date.now()}-${this.rng.nextInt(1_000_000)}`, result);
+    }
     this.render();
     this.schedule();
   }

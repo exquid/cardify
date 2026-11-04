@@ -45,3 +45,10 @@ Rules: [`durak-rules.md`](durak-rules.md). All rule choices are marked **[decisi
   - Bots are simple heuristics (they don't track played cards).
   - Defending needs a tap on the target card when several are open; on small phones, hands of 15+ cards overlap tightly.
   - Durak has no sound of its own (it reuses the poker sounds); there are no deal/flip animations beyond the shared card styles.
+
+## Stage 5 — Social / Profile 🟡 local profile only
+- **Profile sheet** (home menu → Profile): a display name (cleaned like online names; it prefills the private-table form) and lifetime stats for solo Hold'em (Sit & Gos, wins, best finish) and Durak (games, got out, times durak), with a two-tap reset.
+- Results are recorded **once per finished game** (on the command that ends it, with a dedupe id list); corrupt or tampered profile data is rebuilt field by field (`src/storage/profile.ts`, 3 tests). Browser: every Durak game in `durak-ui.mts` counts exactly once (21/21).
+- Durak games now **save and continue** after a reload ("Continue game · bout N"), with a strict validator (2 tests + browser check).
+- **Not done (needs a backend and accounts, i.e. your decision):** friends, invites beyond table codes, presence, blocking/reporting, server-side stats, avatars beyond initials. Online results are not counted in the profile.
+- **Rough edge:** poker results are counted only when the tournament ends for you in this browser; this is covered by code review, not by a browser test (a full Sit & Go is long to automate).

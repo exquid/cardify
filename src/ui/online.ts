@@ -1,6 +1,7 @@
 import type { TableView } from '../game/views';
 import { NetClient, probeServer, type ConnectionStatus } from '../net/client';
 import { PROTOCOL_VERSION, type ClientMessage, type LobbyView, type ServerMessage, type TableMeta } from '../net/protocol';
+import { loadProfile } from '../storage/profile';
 import { emptyStats, type SessionStats } from '../storage/session';
 import type { SeatExtras } from './table';
 import { describeStatus, TableScreen, type FrameContext, type TableScreenEnv } from './tableScreen';
@@ -319,7 +320,7 @@ export class OnlineController {
     this.shell.setActive(null);
     this.shell.root.replaceChildren(
       entryScreen({
-        name: this.save.name,
+        name: this.save.name || loadProfile().name,
         code: this.entry.code,
         rejoinCode: this.save.code && this.save.token ? this.save.code : null,
         unavailable: this.url

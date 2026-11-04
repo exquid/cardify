@@ -2642,3 +2642,13 @@ kbd {
     scroll-behavior: auto !important;
   }
 }
+
+/* Profile sheet (Stage 5) */
+.profile .setting__label {
+  display: block;
+  margin: 22px 0 2px;
+}
+
+.profile .menu__item--danger {
+  margin-top: 12px;
+}
