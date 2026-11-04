@@ -312,7 +312,8 @@ export class DurakScreen {
       toggleClass(this.resultEl, 'is-win', !lost && view.outcome.kind !== 'draw');
     }
 
-    this.handleEvents(view, nameOf, seqChanged);
+    // The first render of a screen (new game, Continue, or a reconnect snapshot) fills the history quietly.
+    this.handleEvents(view, nameOf, seqChanged, this.view === null);
     this.view = view;
   }
 
@@ -338,7 +339,7 @@ export class DurakScreen {
     this.hooks.onAction(action, this.view.seq);
   }
 
-  private handleEvents(view: DurakView, nameOf: (id: string) => string, fresh: boolean): void {
+  private handleEvents(view: DurakView, nameOf: (id: string) => string, fresh: boolean, quiet: boolean): void {
     const events = view.events.slice(this.seenEvents);
     this.seenEvents = view.events.length;
     if (!fresh) return;
@@ -349,17 +350,17 @@ export class DurakScreen {
         this.history.push(line);
         said.push(line);
       }
-      if (this.soundOn()) {
+      if (!quiet && this.soundOn()) {
         if (e.type === 'attack' || e.type === 'defend') this.sound.play('card');
         else if (e.type === 'draw') this.sound.play('deal');
         else if (e.type === 'pickup') this.sound.play('fold');
         else if (e.type === 'over') this.sound.play(e.outcome.kind === 'loser' && e.outcome.loserId === this.heroId ? 'fold' : 'win');
       }
     }
-    if (view.legal && this.soundOn() && events.length) this.sound.play('turn');
+    if (!quiet && view.legal && this.soundOn() && events.length) this.sound.play('turn');
     const latest = this.history[this.history.length - 1];
     if (latest) setText(this.feedText, latest);
-    if (said.length) setText(this.live, said.slice(-3).join(' '));
+    if (said.length && !quiet) setText(this.live, said.slice(-3).join(' '));
   }
 }
 

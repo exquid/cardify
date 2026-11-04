@@ -40,4 +40,7 @@ Variant: **podkidnoy durak** (throw-in), 36 cards, 2–6 players. This is the ho
 - Perevodnoy (transferring the attack by playing the same rank).
 - "The durak defends first next game" and multi-game series and scoring.
 - The 5-card first-bout rule is on. Some houses use 6; it is one constant (`FIRST_BOUT_LIMIT`).
-- Online Durak works on private tables for 2–4 seats. A human whose clock runs out plays the safe move: lead the lowest card, pass a throw-in, or take.
+
+## Online
+
+Private tables for 2–4 seats: pick "Durak" when creating a table. A player whose clock runs out plays the safe move: lead the lowest card, pass a throw-in, or take.

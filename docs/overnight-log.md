@@ -4,6 +4,27 @@ The owner launched an autonomous overnight run ("work through all the plans, don
 
 Rules kept: work only on branch `claude/youthful-pascal-rmmfom` (never `main`, so neither Render nor production changes), keep the Walnut Club design, run `npm run check` before every commit, and record every decision taken on the owner's behalf.
 
+## ☀️ Morning summary — read this first
+
+**Where things are:** every commit is on branch `claude/youthful-pascal-rmmfom`. Nothing went to `main`, so production (Vercel + Render) is unchanged. Final state: `npm run check` green, **176 tests in 19 files**; all browser scenarios in `docs/qa/browser/` pass.
+
+**What you can try now** (locally: `npm ci`, then `npx vite` and `npx tsx server/index.ts`):
+1. Home → library → **Play Durak** (solo, 2–4 players; Continue works after a reload).
+2. **Play with friends** → pick **Durak** → Create a table → open the invite link in a second browser.
+3. Home menu → **Profile** (name + stats).
+4. Poker as before: solo and online.
+
+**Review first (highest impact):**
+1. `server/room.ts` — the online room now runs any game through the hub contract. Poker behaviour was preserved (old tests and browser regressions pass), but this is the change that reaches Render on merge.
+2. `docs/durak-rules.md` — every **[decision]** is a house rule I chose for you (lowest trump leads, all may throw in, 5-card first bout, no perevodnoy).
+3. `server/room.ts` → `recover()` policy for a broken table (safe move → 2 retries → close with a message).
+
+**Known rough edges** (none blocks play): no Durak stats for online games; Durak turn clock only in the status line; no "offline" badge on Durak seats; Durak bots don't count played cards; tables live in memory (a deploy ends running games); dev-only lint advisory left unfixed (needs a breaking upgrade).
+
+**Before merging:** run through `docs/release-checklist.md`, items 6, 11 and 14 (real phones, environment check, staged rollout).
+
+---
+
 Status is kept per stage below; each section lists **what was done**, **decisions taken for you** (all reversible), and **rough edges**.
 
 ---
@@ -63,3 +84,5 @@ Rules: [`durak-rules.md`](durak-rules.md). All rule choices are marked **[decisi
 - Poker online is unchanged: all old server tests pass, plus the poker browser regressions (8/8, 10/10).
 - New: 4 server tests for Durak rooms, 3 protocol checks, browser `durak-online.mts` 8/8 (two browsers, a whole game, both reconnect, no leaks).
 - **Rough edges:** Durak online stats are not counted in the profile. The turn clock appears only in the status line (no ring on the seat as in poker). Seat plates show no "offline" badge in Durak yet.
+
+- Fix: a fresh Durak screen (Continue or a reconnect) no longer replays the sounds of every past event at once; the history is filled quietly.
