@@ -84,5 +84,31 @@ for (const [players, label, profile] of [
   }
   await ctx.close();
 }
+// Continue after a reload.
+{
+  console.log('\n== continue after reload');
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, reducedMotion: 'reduce' });
+  await ctx.addInitScript((s: string) => localStorage.setItem('cardify.settings.v1', s), settings);
+  const page = await ctx.newPage();
+  await page.goto(APP_URL);
+  await page.getByRole('button', { name: 'Play Durak' }).click();
+  await page.getByRole('button', { name: 'You vs Nova (2 players)' }).click();
+  await page.waitForSelector('.screen--durak');
+  for (let i = 0; i < 100 && (await page.getAttribute('.durak-dock', 'data-mode')) !== 'turn'; i++) await page.waitForTimeout(60);
+  await page.locator('.durak-hand__card.is-playable').first().click();
+  await page.waitForTimeout(300);
+  const handBefore = await page.locator('.durak-hand__card').count();
+  const infoBefore = await page.locator('.topbar__info').innerText();
+  await page.reload();
+  await page.getByRole('button', { name: 'Play Durak' }).click();
+  const resume = page.getByRole('button', { name: /Continue game · bout/ });
+  checks.ok((await resume.count()) === 1, 'a saved game offers "Continue game"');
+  await resume.click();
+  await page.waitForSelector('.screen--durak');
+  checks.ok((await page.locator('.durak-hand__card').count()) === handBefore, `the hand came back (${handBefore} cards)`);
+  checks.ok((await page.locator('.topbar__info').innerText()).split('\n')[1] === infoBefore.split('\n')[1], 'the same bout came back');
+  await ctx.close();
+}
+
 await browser.close();
 checks.finish();

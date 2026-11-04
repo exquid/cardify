@@ -1,4 +1,5 @@
 import { durakGame } from '../../durak/game';
+import { clearDurak, loadDurak, saveDurak } from '../../durak/persist';
 import { DurakRuleError, type DurakAction, type DurakState } from '../../durak/types';
 import { createCryptoRng } from '../../game/deck';
 import type { HubSeat } from '../../hub/tableGame';
@@ -54,9 +55,24 @@ export class DurakController {
       this.players = n;
       this.newGame();
     };
+    const saved = loadDurak();
+    const resumable = saved && saved.players.some((p) => p.id === HERO) ? saved : null;
     body.append(
       h('p', { class: 'menu__lead', text: 'Podkidnoy Durak with a 36-card deck. Beat every attack, or pick the cards up. Don’t be the last one holding cards.' }),
-      h('button', { class: 'menu__item menu__item--primary', text: 'You vs Nova (2 players)', attrs: { type: 'button' }, on: { click: choose(2) } }),
+      ...(resumable
+        ? [h('button', {
+            class: 'menu__item menu__item--primary',
+            text: `Continue game · bout ${resumable.bout.number}`,
+            attrs: { type: 'button' },
+            on: {
+              click: () => {
+                dialog?.close();
+                this.mount(resumable);
+              },
+            },
+          })]
+        : []),
+      h('button', { class: `menu__item${resumable ? '' : ' menu__item--primary'}`, text: 'You vs Nova (2 players)', attrs: { type: 'button' }, on: { click: choose(2) } }),
       h('button', { class: 'menu__item', text: 'You, Nova and Vex (3 players)', attrs: { type: 'button' }, on: { click: choose(3) } }),
       h('button', { class: 'menu__item', text: 'Full table of four', attrs: { type: 'button' }, on: { click: choose(4) } }),
     );
@@ -86,9 +102,15 @@ export class DurakController {
   }
 
   private newGame(): void {
-    window.clearTimeout(this.timer);
+    clearDurak();
     const seats: HubSeat[] = [{ id: HERO, name: 'You', kind: 'human' }, ...BOTS.slice(0, this.players - 1).map((b) => ({ ...b, kind: 'bot' as const }))];
-    this.state = durakGame.create(seats, this.rng);
+    this.mount(durakGame.create(seats, this.rng));
+  }
+
+  private mount(state: DurakState): void {
+    window.clearTimeout(this.timer);
+    this.state = state;
+    saveDurak(state);
     this.screen = new DurakScreen(HERO, durakGame.view(this.state, HERO), this.host.sound, () => this.host.soundOn(), {
       onAction: (action, seq) => this.onHeroAction(action, seq),
       onMenu: () => this.openMenu(),
@@ -112,6 +134,7 @@ export class DurakController {
 
   private commit(next: DurakState): void {
     this.state = next;
+    saveDurak(next);
     this.render();
     this.schedule();
   }
