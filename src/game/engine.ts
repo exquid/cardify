@@ -1,4 +1,4 @@
-import type { Card } from './cards';
+import { isCard, type Card } from './cards';
 import { blindsForLevel, levelIndexForHand } from './config';
 import { createCryptoRng, shuffledDeck, type Rng } from './deck';
 import { evaluateDetailed } from './evaluator';
@@ -373,9 +373,12 @@ function clone<T>(value: T): T {
   return structuredClone(value);
 }
 
+/** A hand is only dealt from a complete 52-card deck, so it can never run dry mid-hand. */
 function assertValidDeck(deck: readonly Card[]): void {
+  if (deck.length !== 52) throw new Error(`A deck needs 52 cards, got ${deck.length}`);
   const seen = new Set<string>();
   for (const c of deck) {
+    if (!isCard(c)) throw new Error(`Invalid card in deck: ${JSON.stringify(c)}`);
     const key = `${c.rank}${c.suit}`;
     if (seen.has(key)) throw new Error(`Duplicate card in deck: ${key}`);
     seen.add(key);

@@ -157,8 +157,12 @@ export class TableScreen {
     if (this.controls.handleKey(e.key)) e.preventDefault();
   }
 
-  /** Re-renders the last view without effects (e.g. after an action was refused). */
+  /**
+   * Re-renders the last view without effects after an action was refused or
+   * could not be delivered, and lets the player act on the same decision again.
+   */
   rerender(): void {
+    this.controls.release();
     if (this.view && this.lastContext) this.render(this.view, { ...this.lastContext, effects: false });
   }
 

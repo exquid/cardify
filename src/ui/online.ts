@@ -207,6 +207,7 @@ export class OnlineController {
   }
 
   private onStatus(status: ConnectionStatus, detail?: string): void {
+    const previous = this.status;
     this.status = status;
     if (status === 'closed' && detail) {
       this.dispose();
@@ -215,10 +216,15 @@ export class OnlineController {
     }
     if (this.mode === 'lobby') this.renderLobby();
     if (this.mode === 'game' && status === 'reconnecting') this.screen?.notify('Connection lost — reconnecting…');
+    else if (this.mode === 'game' && status === 'open' && previous === 'reconnecting') this.screen?.notify('Reconnected.');
   }
 
   private send(message: ClientMessage): void {
-    if (!this.client?.send(message)) this.screen?.notify('Not connected — your tap was not sent. Reconnecting…');
+    if (!this.client?.send(message)) {
+      this.screen?.notify('Not connected — your tap was not sent. Reconnecting…');
+      // The tap never left this device, so the same decision must stay playable.
+      this.screen?.rerender();
+    }
   }
 
   private onMessage(msg: ServerMessage): void {
@@ -229,6 +235,9 @@ export class OnlineController {
         this.playerId = msg.playerId;
         this.save = { ...this.save, code: msg.code, token: msg.token };
         writeSave(this.save);
+        // Back after a reconnect: a tap made before the drop either reached the
+        // table (a new state follows) or was lost, so accept input again.
+        this.screen?.rerender();
         return;
       case 'lobby':
         this.lobby = msg.lobby;

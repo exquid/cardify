@@ -226,6 +226,15 @@ export class Controls {
     }
   }
 
+  /**
+   * Accepts input again for the decision on screen. Called when a tap was
+   * refused or never reached the table; a duplicate that slips through is
+   * still rejected by the engine/server `seq` check.
+   */
+  release(): void {
+    this.locked = false;
+  }
+
   focusPrimary(): void {
     const target = [this.callBtn, this.nextBtn].find((b) => !b.classList.contains('is-hidden') && !b.disabled);
     softFocus(target);
@@ -308,7 +317,8 @@ export class Controls {
   }
 
   private step(): number {
-    return Math.max(1, (this.view?.bigBlind ?? 2) / 2);
+    // Whole chips only: with an odd big blind, half a blind is not a valid stop.
+    return Math.max(1, Math.floor((this.view?.bigBlind ?? 2) / 2));
   }
 
   private nudge(direction: 1 | -1): void {

@@ -486,12 +486,16 @@ describe('P01 malformed setup fails safely', () => {
     expect(() => startNextHand(done, { deck })).toThrow(/Duplicate/);
   });
 
-  it.fails('BUG-S1-03: rejects a deck that is too short or contains invalid cards before dealing', () => {
+  it('BUG-S1-03: rejects a deck that is too short or contains invalid cards before dealing', () => {
     const s = setupHand({ stacks: [1000, 1000, 1000, 1000], dealerSeat: 0 });
     const done = fold(fold(fold(s, 'p3'), 'p0'), 'p1');
-    // 10 cards: enough for hole cards, not for the board. Today the hand starts
-    // and later dies mid-hand with a plain "Deck exhausted" error.
-    expect(() => startNextHand(done, { deck: createDeck().slice(0, 10) })).toThrow();
-    expect(() => startNextHand(done, { deck: [...createDeck().slice(0, 51), { rank: 1, suit: 'x' } as never] })).toThrow();
+    const before = structuredClone(done);
+    // 10 cards would cover the hole cards but not the board: the hand used to
+    // start and then die mid-hand with "Deck exhausted".
+    expect(() => startNextHand(done, { deck: createDeck().slice(0, 10) })).toThrow(/52 cards/);
+    expect(() => startNextHand(done, { deck: [...createDeck(), createDeck()[0]!] })).toThrow(/52 cards/);
+    expect(() => startNextHand(done, { deck: [...createDeck().slice(0, 51), { rank: 1, suit: 'x' } as never] })).toThrow(/Invalid card/);
+    expect(done).toEqual(before);
+    expect(startNextHand(done, { deck: createDeck() }).hand!.number).toBe(2);
   });
 });
